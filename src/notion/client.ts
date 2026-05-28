@@ -108,13 +108,13 @@ export async function resetDailyTasks(): Promise<void> {
     filter: { property: '毎日', checkbox: { equals: true } },
   });
 
-  for (const page of res.results) {
-    const status = getStatus((page as any).properties['状態']);
-    if (status === '完了' || status === 'Done') {
+ if (status === '完了' || status === 'Done') {
       await notion.pages.update({
         page_id: page.id,
         properties: {
-          '状態': { status: { name: '未着手' } as any, },
+          '状態': {
+            status: { name: '未着手' },
+          } as any,
         },
       });
     }
