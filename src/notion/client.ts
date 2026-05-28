@@ -103,23 +103,7 @@ export async function fetchTodayWorkType(): Promise<string | null> {
 }
 
 export async function resetDailyTasks(): Promise<void> {
-  const res = await notion.databases.query({
-    database_id: DATABASE_ID,
-    filter: { property: '毎日', checkbox: { equals: true } },
-  });
-
- if (status === '完了' || status === 'Done') {
-      await notion.pages.update({
-        page_id: page.id,
-        properties: {
-          '状態': {
-            status: { name: '未着手' },
-          } as any,
-        },
-      });
-    }
-  }
-  console.log('✅ 毎日タスクをリセットしました');
+  console.log('✅ 毎日タスクのリセットをスキップします');
 }
 
 export async function fetchWeeklyNoteCount(): Promise<number> {
