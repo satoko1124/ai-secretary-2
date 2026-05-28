@@ -114,7 +114,7 @@ export async function resetDailyTasks(): Promise<void> {
       await notion.pages.update({
         page_id: page.id,
         properties: {
-          '状態': { status: { name: '未着手' } },
+          '状態': { status: { name: '未着手' } as any, },
         },
       });
     }
