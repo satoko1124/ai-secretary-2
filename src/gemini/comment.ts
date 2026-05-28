@@ -1,7 +1,5 @@
 import { NotionTask, WeeklyStats } from '../types';
 
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
-
 const BASE_SYSTEM_PROMPT = `
 あなたは「AI秘書」です。
 病院勤務をしながら創作活動を継続するユーザーをサポートします。
@@ -37,33 +35,34 @@ const BASE_SYSTEM_PROMPT = `
 【noteの目標】週3本
 `.trim();
 
-async function callGemini(prompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY が設定されていません');
+async function callClaude(prompt: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY が設定されていません');
 
-  const res = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
     body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: `${BASE_SYSTEM_PROMPT}\n\n${prompt}` }],
-        },
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      system: BASE_SYSTEM_PROMPT,
+      messages: [
+        { role: 'user', content: prompt },
       ],
-      generationConfig: {
-        maxOutputTokens: 800,
-        temperature: 0.7,
-      },
     }),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Gemini APIエラー: ${err}`);
+    throw new Error(`Claude APIエラー: ${err}`);
   }
 
   const data = await res.json() as any;
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '（コメント生成失敗）';
+  return data.content?.[0]?.text ?? '（コメント生成失敗）';
 }
 
 export async function generateMorningComment(
@@ -114,7 +113,7 @@ ${heavyTasks.length}個（${heavyTasks.map((t) => t.name).join('、') || 'なし
 （AI秘書からの一言アドバイス：2〜3文で。責めない・実務的に。）
 `.trim();
 
-  return callGemini(prompt);
+  return callClaude(prompt);
 }
 
 export async function generateWeeklyComment(stats: WeeklyStats): Promise<string> {
@@ -156,5 +155,5 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 （2〜3点。箇条書き。）
 `.trim();
 
-  return callGemini(prompt);
+  return callClaude(prompt);
 }
