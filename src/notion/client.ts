@@ -4,6 +4,8 @@ import { NotionTask, WeeklyStats } from '../types';
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const DATABASE_ID = process.env.NOTION_DATABASE_ID!;
 
+const WORK_TYPES = ['通常勤務', '早番', '平日当直', '土日当直', '当直明け', '休み'];
+
 function getTitle(prop: any): string {
   return prop?.title?.[0]?.plain_text ?? '';
 }
@@ -26,15 +28,17 @@ function getDate(prop: any): string | null {
 
 function pageToTask(page: any): NotionTask {
   const props = page.properties;
+  const name = getTitle(props['名前']);
+  const workTypeFromTitle = WORK_TYPES.includes(name) ? name : getSelect(props['勤務']);
   return {
     id: page.id,
-    name: getTitle(props['名前']),
+    name,
     date: getDate(props['日付']),
     status: getStatus(props['状態']),
     isDaily: getCheckbox(props['毎日']),
     weight: getSelect(props['重さ']),
     priority: getSelect(props['優先度']),
-    workType: getSelect(props['勤務']),
+    workType: workTypeFromTitle,
   };
 }
 
@@ -44,23 +48,28 @@ function todayString(): string {
   return jst.toISOString().slice(0, 10);
 }
 
+function thisWeekRange(): { monday: string; today: string } {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+  return {
+    monday: monday.toISOString().slice(0, 10),
+    today: now.toISOString().slice(0, 10),
+  };
+}
+
 export async function fetchTodayTasks(): Promise<NotionTask[]> {
   const today = todayString();
 
   const [byDate, byDaily] = await Promise.all([
     notion.databases.query({
       database_id: DATABASE_ID,
-      filter: {
-        property: '日付',
-        date: { equals: today },
-      },
+      filter: { property: '日付', date: { equals: today } },
     }),
     notion.databases.query({
       database_id: DATABASE_ID,
-      filter: {
-        property: '毎日',
-        checkbox: { equals: true },
-      },
+      filter: { property: '毎日', checkbox: { equals: true } },
     }),
   ]);
 
@@ -72,7 +81,10 @@ export async function fetchTodayTasks(): Promise<NotionTask[]> {
     return true;
   });
 
-  return unique.map(pageToTask).filter((t) => t.name !== '' && t.status !== '完了' && t.status !== 'Done');
+  return unique
+    .map(pageToTask)
+    .filter((t) => t.name !== '' && t.status !== '完了' && t.status !== 'Done')
+    .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
 export async function fetchTodayWorkType(): Promise<string | null> {
@@ -80,18 +92,57 @@ export async function fetchTodayWorkType(): Promise<string | null> {
 
   const res = await notion.databases.query({
     database_id: DATABASE_ID,
-    filter: {
-      and: [
-        { property: '日付', date: { equals: today } },
-        { property: '勤務', select: { is_not_empty: true } },
-      ],
-    },
-    page_size: 1,
+    filter: { property: '日付', date: { equals: today } },
   });
 
-  if (res.results.length === 0) return null;
-  const page = res.results[0] as any;
-  return getSelect(page.properties['勤務']);
+  for (const page of res.results) {
+    const name = getTitle((page as any).properties['名前']);
+    if (WORK_TYPES.includes(name)) return name;
+  }
+  return null;
+}
+
+export async function resetDailyTasks(): Promise<void> {
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: { property: '毎日', checkbox: { equals: true } },
+  });
+
+  for (const page of res.results) {
+    const status = getStatus((page as any).properties['状態']);
+    if (status === '完了' || status === 'Done') {
+      await notion.pages.update({
+        page_id: page.id,
+        properties: {
+          '状態': { status: { name: '未着手' } },
+        },
+      });
+    }
+  }
+  console.log('✅ 毎日タスクをリセットしました');
+}
+
+export async function fetchWeeklyNoteCount(): Promise<number> {
+  const { monday, today } = thisWeekRange();
+
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: {
+      and: [
+        { property: '日付', date: { on_or_after: monday } },
+        { property: '日付', date: { on_or_before: today } },
+      ],
+    },
+    page_size: 100,
+  });
+
+  return res.results
+    .map(pageToTask)
+    .filter(
+      (t) =>
+        (t.status === '完了' || t.status === 'Done') &&
+        (t.name.includes('note') || t.name.includes('Note'))
+    ).length;
 }
 
 export async function fetchWeeklyStats(): Promise<WeeklyStats> {
@@ -124,8 +175,8 @@ export async function fetchWeeklyStats(): Promise<WeeklyStats> {
   );
 
   const workTypesSet: string[] = tasks
-    .map((t) => t.workType)
-    .filter((w): w is string => w !== null);
+    .map((t) => t.name)
+    .filter((name) => WORK_TYPES.includes(name));
 
   const stats: WeeklyStats = {
     completedCount: completed.length,
@@ -134,7 +185,7 @@ export async function fetchWeeklyStats(): Promise<WeeklyStats> {
     noteCount: completed.filter((t) => t.name.includes('note') || t.name.includes('Note')).length,
     evolutionMinutes: completed.filter((t) => t.name.toLowerCase().includes('evolution')).length * 60,
     xPostCount: completed.filter((t) => t.name.includes('X投稿')).length,
-    affirmationDays: completed.filter((t) => t.name.includes('アファメーション')).length,
+    affirmationDays: completed.filter((t) => t.name.includes('アファメーション') || t.name.includes('アフォメーション')).length,
     normalWorkDays: workTypesSet.filter((w) => w === '通常勤務').length,
     nightShiftCount: workTypesSet.filter((w) => w === '平日当直' || w === '土日当直').length,
     morningShiftCount: workTypesSet.filter((w) => w === '早番').length,
