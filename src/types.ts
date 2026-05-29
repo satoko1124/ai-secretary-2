@@ -4,10 +4,10 @@ export interface NotionTask {
   name: string;
   date: string | null;
   status: string;
-  isDaily: boolean;       // 「毎日」チェックボックス
-  weight: string | null;  // 「重さ」select: 軽 / 中 / 重
+  isDaily: boolean;
+  weight: string | null;
   priority: string | null;
-  workType: string | null; // 「勤務」select
+  workType: string | null;
 }
 
 // 勤務種類
@@ -49,4 +49,20 @@ export interface WeeklyStats {
   heavyTaskCount: number;
   workTypes: string[];
   taskNames: string[];
+}
+
+// 月報用の集計データ
+export interface MonthlyStats {
+  monthName: string;
+  completedCount: number;
+  noraVideos: number;
+  monaVideos: number;
+  noteCount: number;
+  xPostCount: number;
+  affirmationDays: number;
+  normalWorkDays: number;
+  nightShiftCount: number;
+  morningShiftCount: number;
+  afterNightShiftDays: number;
+  heavyTaskCount: number;
 }
