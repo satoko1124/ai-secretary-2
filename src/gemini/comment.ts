@@ -68,15 +68,18 @@ async function callClaude(prompt: string): Promise<string> {
 export async function generateMorningComment(
   workType: string | null,
   tasks: NotionTask[],
-  weeklyNoteCount: number
+  weeklyNoteCount: number,
+  calendarEvents: any[] = []
 ): Promise<string> {
   const taskList = tasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n');
   const heavyTasks = tasks.filter((t) => t.weight === '重');
-
   const noteRemaining = Math.max(0, 3 - weeklyNoteCount);
   const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
   const dayOfWeek = today.getDay();
   const daysLeft = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  const calendarList = calendarEvents.length > 0
+    ? calendarEvents.map((e: any) => `・${e.title}（${e.start}）`).join('\n')
+    : 'なし';
 
   const prompt = `
 今日の状況を分析して、毎朝のLINE通知メッセージを生成してください。
@@ -89,6 +92,9 @@ ${taskList || 'なし'}
 
 【重タスク数】
 ${heavyTasks.length}個（${heavyTasks.map((t) => t.name).join('、') || 'なし'}）
+
+【Googleカレンダーの予定】
+${calendarList}
 
 【note進捗】
 今週：${weeklyNoteCount}本 / 目標3本
@@ -103,6 +109,9 @@ ${heavyTasks.length}個（${heavyTasks.map((t) => t.name).join('、') || 'なし
 
 【今日の予定】
 （タスク一覧）
+
+【カレンダーの予定】
+（Googleカレンダーの予定があれば記載、なければ省略）
 
 【重タスク】
 （重タスクがあれば記載、なければ「今日は重タスクなし」）
