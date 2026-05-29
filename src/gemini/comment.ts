@@ -77,7 +77,8 @@ export async function generateMorningComment(
   workType: string | null,
   tasks: NotionTask[],
   weeklyNoteCount: number,
-  calendarEvents: any[] = []
+  calendarEvents: any[] = [],
+  weekRemainingTasks: NotionTask[] = []
 ): Promise<string> {
   const taskList = tasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n');
   const heavyTasks = tasks.filter((t) => t.weight === '重');
@@ -88,8 +89,10 @@ export async function generateMorningComment(
   const calendarList = calendarEvents.length > 0
     ? calendarEvents.map((e: any) => `・${e.title}（${e.start}）`).join('\n')
     : 'なし';
-
   const isHoliday = workType === '休み' || workType === null;
+  const weekTaskList = weekRemainingTasks.length > 0
+    ? weekRemainingTasks.map((t: NotionTask) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
+    : 'なし';
 
   const prompt = `
 今日の状況を分析して、毎朝のLINE通知メッセージを生成してください。
@@ -102,6 +105,9 @@ ${isHoliday ? '休日（脳科学ベースのタスク配分を推奨）' : '勤
 
 【今日のタスク一覧】
 ${taskList || 'なし'}
+
+【今週の残りタスク（今日以降）】
+${weekTaskList}
 
 【重タスク数】
 ${heavyTasks.length}個（${heavyTasks.map((t) => t.name).join('、') || 'なし'}）
@@ -126,13 +132,16 @@ ${calendarList}
 【カレンダーの予定】
 （Googleカレンダーの予定があれば記載、なければ省略）
 
+【今日やるといいタスク】
+（今週の残りタスクから今日できそうなものを1〜2個提案）
+
 【重タスク】
 （重タスクがあれば記載、なければ「今日は重タスクなし」）
 
 📝 note進捗
 （今週の本数／目標、残り本数、今日書くべきか一言）
 
-（AI秘書からの一言アドバイス：休日なら脳科学ベースの時間配分を提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない・実務的に。）
+（AI秘書からの一言アドバイス：休日なら脳科学ベースの時間配分も提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない・実務的に。）
 `.trim();
 
   return callClaude(prompt);
