@@ -17,8 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
+      - run: npm install
       - run: npm run test:morning
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -39,8 +38,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
+      - run: npm install
       - run: npm run test:weekly
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
@@ -59,8 +57,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-      - run: npm ci
+      - run: npm install
       - run: npm run test:monthly
         env:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
