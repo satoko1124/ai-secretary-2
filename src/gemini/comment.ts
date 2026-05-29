@@ -1,4 +1,4 @@
-import { NotionTask, WeeklyStats } from '../types';
+import { NotionTask, WeeklyStats, MonthlyStats } from '../types';
 
 const BASE_SYSTEM_PROMPT = `
 あなたは「AI秘書」です。
@@ -153,6 +153,51 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 
 ■ 来週の提案
 （2〜3点。箇条書き。）
+`.trim();
+
+  return callClaude(prompt);
+}
+
+export async function generateMonthlyComment(stats: MonthlyStats): Promise<string> {
+  const noteAchievement = stats.noteCount >= 12
+    ? '✅ 週3本ペース達成！'
+    : `週平均${(stats.noteCount / 4).toFixed(1)}本`;
+
+  const prompt = `
+先月の活動データを分析して、月報LINEメッセージを生成してください。
+
+【${stats.monthName}の実績】
+・完了タスク数：${stats.completedCount}個
+・ノーラ動画：${stats.noraVideos}本
+・モナ動画：${stats.monaVideos}本
+・note：${stats.noteCount}本（${noteAchievement}）
+・X投稿：${stats.xPostCount}回
+・アファメーション：${stats.affirmationDays}日
+
+【${stats.monthName}の勤務】
+・通常勤務：${stats.normalWorkDays}日
+・当直：${stats.nightShiftCount}回
+・早番：${stats.morningShiftCount}日
+・当直明け：${stats.afterNightShiftDays}日
+・重タスク完了：${stats.heavyTaskCount}個
+
+以下のフォーマットで出力してください：
+
+【${stats.monthName}の月報】
+
+おつかれさまでした ☀️
+
+■ 先月の実績
+（実績一覧）
+
+■ 勤務状況
+（勤務まとめ）
+
+■ AI分析
+（先月の総括。3〜5文。頑張りを可視化。反省会にしない。）
+
+■ 来月の提案
+（具体的な提案を2〜3点。）
 `.trim();
 
   return callClaude(prompt);
