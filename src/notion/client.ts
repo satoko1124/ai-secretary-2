@@ -48,13 +48,16 @@ function todayString(): string {
   return jst.toISOString().slice(0, 10);
 }
 
-function thisWeekRange(): { monday: string; today: string } {
+function thisWeekRange(): { monday: string; sunday: string; today: string } {
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
   const dayOfWeek = now.getDay();
   const monday = new Date(now);
   monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
   return {
     monday: monday.toISOString().slice(0, 10),
+    sunday: sunday.toISOString().slice(0, 10),
     today: now.toISOString().slice(0, 10),
   };
 }
@@ -87,6 +90,26 @@ export async function fetchTodayTasks(): Promise<NotionTask[]> {
     .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
+export async function fetchWeekRemainingTasks(): Promise<NotionTask[]> {
+  const { today, sunday } = thisWeekRange();
+
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: {
+      and: [
+        { property: '日付', date: { on_or_after: today } },
+        { property: '日付', date: { on_or_before: sunday } },
+      ],
+    },
+    page_size: 50,
+  });
+
+  return res.results
+    .map(pageToTask)
+    .filter((t) => t.name !== '' && t.status !== '完了' && t.status !== 'Done')
+    .filter((t) => !WORK_TYPES.includes(t.name));
+}
+
 export async function fetchTodayWorkType(): Promise<string | null> {
   const today = todayString();
 
@@ -103,7 +126,40 @@ export async function fetchTodayWorkType(): Promise<string | null> {
 }
 
 export async function resetDailyTasks(): Promise<void> {
-  console.log('✅ 毎日タスクのリセットをスキップします');
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: { property: '毎日', checkbox: { equals: true } },
+  });
+
+  let resetCount = 0;
+  for (const page of res.results) {
+    const props = (page as any).properties;
+    const status = getStatus(props['状態']);
+    if (status === '完了' || status === 'Done') {
+      try {
+        await (notion.pages.update as any)({
+          page_id: page.id,
+          properties: {
+            '状態': { status: { name: '未着手' } },
+          },
+        });
+        resetCount++;
+      } catch {
+        try {
+          await (notion.pages.update as any)({
+            page_id: page.id,
+            properties: {
+              '状態': { select: { name: '未着手' } },
+            },
+          });
+          resetCount++;
+        } catch (e2) {
+          console.warn(`タスクリセット失敗 (${page.id}):`, e2);
+        }
+      }
+    }
+  }
+  console.log(`✅ 毎日タスクをリセットしました（${resetCount}件）`);
 }
 
 export async function fetchWeeklyNoteCount(): Promise<number> {
