@@ -1,5 +1,5 @@
 import { Client } from '@notionhq/client';
-import { NotionTask, WeeklyStats } from '../types';
+import { NotionTask, WeeklyStats, MonthlyStats } from '../types';
 
 const notion = new Client({ auth: process.env.NOTION_API_KEY });
 const DATABASE_ID = process.env.NOTION_DATABASE_ID!;
@@ -162,7 +162,7 @@ export async function fetchWeeklyStats(): Promise<WeeklyStats> {
     .map((t) => t.name)
     .filter((name) => WORK_TYPES.includes(name));
 
-  const stats: WeeklyStats = {
+  return {
     completedCount: completed.length,
     noraVideos: completed.filter((t) => t.name.includes('ノーラ')).length,
     monaVideos: completed.filter((t) => t.name.includes('モナ')).length,
@@ -178,6 +178,51 @@ export async function fetchWeeklyStats(): Promise<WeeklyStats> {
     workTypes: workTypesSet,
     taskNames: completed.map((t) => t.name),
   };
+}
 
-  return stats;
+export async function fetchMonthlyStats(): Promise<MonthlyStats> {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+
+  const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  const firstDayStr = firstDay.toISOString().slice(0, 10);
+  const lastDayStr = lastDay.toISOString().slice(0, 10);
+
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: {
+      and: [
+        { property: '日付', date: { on_or_after: firstDayStr } },
+        { property: '日付', date: { on_or_before: lastDayStr } },
+      ],
+    },
+    page_size: 100,
+  });
+
+  const tasks = res.results.map(pageToTask);
+  const completed = tasks.filter(
+    (t) => t.status === '完了' || t.status === 'Done'
+  );
+
+  const workTypesSet: string[] = tasks
+    .map((t) => t.name)
+    .filter((name) => WORK_TYPES.includes(name));
+
+  const monthName = `${firstDay.getMonth() + 1}月`;
+
+  return {
+    monthName,
+    completedCount: completed.length,
+    noraVideos: completed.filter((t) => t.name.includes('ノーラ')).length,
+    monaVideos: completed.filter((t) => t.name.includes('モナ')).length,
+    noteCount: completed.filter((t) => t.name.includes('note') || t.name.includes('Note')).length,
+    xPostCount: completed.filter((t) => t.name.includes('X投稿')).length,
+    affirmationDays: completed.filter((t) => t.name.includes('アファメーション') || t.name.includes('アフォメーション')).length,
+    normalWorkDays: workTypesSet.filter((w) => w === '通常勤務').length,
+    nightShiftCount: workTypesSet.filter((w) => w === '平日当直' || w === '土日当直').length,
+    morningShiftCount: workTypesSet.filter((w) => w === '早番').length,
+    afterNightShiftDays: workTypesSet.filter((w) => w === '当直明け').length,
+    heavyTaskCount: completed.filter((t) => t.weight === '重').length,
+  };
 }
