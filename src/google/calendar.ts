@@ -22,15 +22,15 @@ async function getCalendarClient() {
   return google.calendar({ version: 'v3', auth });
 }
 
-export async function fetchTodayCalendarEvents(): Promise<CalendarEvent[]> {
+async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEvent[]> {
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
   if (!calendarId) throw new Error('GOOGLE_CALENDAR_ID が設定されていません');
 
   const calendar = await getCalendarClient();
 
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  const date = new Date(dateStr);
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
 
   const res = await calendar.events.list({
     calendarId,
@@ -52,6 +52,19 @@ export async function fetchTodayCalendarEvents(): Promise<CalendarEvent[]> {
       workType,
     };
   });
+}
+
+export async function fetchTodayCalendarEvents(): Promise<CalendarEvent[]> {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const todayStr = now.toISOString().slice(0, 10);
+  return fetchCalendarEventsForDate(todayStr);
+}
+
+export async function fetchTomorrowCalendarEvents(): Promise<CalendarEvent[]> {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  now.setDate(now.getDate() + 1);
+  const tomorrowStr = now.toISOString().slice(0, 10);
+  return fetchCalendarEventsForDate(tomorrowStr);
 }
 
 export async function fetchWorkTypeFromCalendar(): Promise<string | null> {
