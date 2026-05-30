@@ -378,3 +378,34 @@ export async function fetchMonthlyStats(): Promise<MonthlyStats> {
     heavyTaskCount: completed.filter((t) => t.weight === '重').length,
   };
 }
+// タスクを完了にする
+export async function completeNotionTask(taskName: string): Promise<void> {
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: { property: '名前', title: { contains: taskName } },
+  });
+
+  if (res.results.length === 0) throw new Error('タスクが見つかりません');
+
+  const page = res.results[0];
+  await (notion.pages.update as any)({
+    page_id: page.id,
+    properties: {
+      '状態': { status: { name: '完了' } },
+    },
+  });
+}
+
+// タスクを追加する
+export async function addNotionTask(taskName: string): Promise<void> {
+  const today = todayString();
+  await (notion.pages.create as any)({
+    parent: { database_id: DATABASE_ID },
+    properties: {
+      '名前': { title: [{ text: { content: taskName } }] },
+      '日付': { date: { start: today } },
+      '状態': { status: { name: '未着手' } },
+      '重さ': { select: { name: '軽' } },
+    },
+  });
+}
