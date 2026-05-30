@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:webhook": "ts-node src/webhook/server.ts",
     "dev": "ts-node src/index.ts",
     "test:morning": "ts-node src/test-morning.ts",
     "test:weekly": "ts-node src/test-weekly.ts",
