@@ -48,6 +48,13 @@ function todayString(): string {
   return jst.toISOString().slice(0, 10);
 }
 
+function tomorrowString(): string {
+  const now = new Date();
+  const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  jst.setDate(jst.getDate() + 1);
+  return jst.toISOString().slice(0, 10);
+}
+
 function thisWeekRange(): { monday: string; sunday: string; today: string } {
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
   const dayOfWeek = now.getDay();
@@ -88,6 +95,95 @@ export async function fetchTodayTasks(): Promise<NotionTask[]> {
     .map(pageToTask)
     .filter((t) => t.name !== '' && t.status !== '完了' && t.status !== 'Done')
     .filter((t) => !WORK_TYPES.includes(t.name));
+}
+
+// 今日の完了タスクを取得
+export async function fetchTodayCompletedTasks(): Promise<NotionTask[]> {
+  const today = todayString();
+
+  const [byDate, byDaily] = await Promise.all([
+    notion.databases.query({
+      database_id: DATABASE_ID,
+      filter: { property: '日付', date: { equals: today } },
+    }),
+    notion.databases.query({
+      database_id: DATABASE_ID,
+      filter: { property: '毎日', checkbox: { equals: true } },
+    }),
+  ]);
+
+  const allPages = [...byDate.results, ...byDaily.results];
+  const seen = new Set<string>();
+  const unique = allPages.filter((p) => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+
+  return unique
+    .map(pageToTask)
+    .filter((t) => t.name !== '' && (t.status === '完了' || t.status === 'Done'))
+    .filter((t) => !WORK_TYPES.includes(t.name));
+}
+
+// 今日の進行中タスクを取得
+export async function fetchTodayInProgressTasks(): Promise<NotionTask[]> {
+  const today = todayString();
+
+  const [byDate, byDaily] = await Promise.all([
+    notion.databases.query({
+      database_id: DATABASE_ID,
+      filter: { property: '日付', date: { equals: today } },
+    }),
+    notion.databases.query({
+      database_id: DATABASE_ID,
+      filter: { property: '毎日', checkbox: { equals: true } },
+    }),
+  ]);
+
+  const allPages = [...byDate.results, ...byDaily.results];
+  const seen = new Set<string>();
+  const unique = allPages.filter((p) => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+
+  return unique
+    .map(pageToTask)
+    .filter((t) => t.name !== '' && t.status !== '完了' && t.status !== 'Done' && t.status !== '未着手')
+    .filter((t) => !WORK_TYPES.includes(t.name));
+}
+
+// 明日のタスクを取得
+export async function fetchTomorrowInfo(): Promise<NotionTask[]> {
+  const tomorrow = tomorrowString();
+
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: { property: '日付', date: { equals: tomorrow } },
+  });
+
+  return res.results
+    .map(pageToTask)
+    .filter((t) => t.name !== '')
+    .filter((t) => !WORK_TYPES.includes(t.name));
+}
+
+// 明日の勤務種類を取得
+export async function fetchTomorrowWorkType(): Promise<string | null> {
+  const tomorrow = tomorrowString();
+
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    filter: { property: '日付', date: { equals: tomorrow } },
+  });
+
+  for (const page of res.results) {
+    const name = getTitle((page as any).properties['名前']);
+    if (WORK_TYPES.includes(name)) return name;
+  }
+  return null;
 }
 
 export async function fetchWeekRemainingTasks(): Promise<NotionTask[]> {
