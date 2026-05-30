@@ -11,6 +11,7 @@ const BASE_SYSTEM_PROMPT = `
 - ノーラの動画は毎日運営中
 - 真面目で詰め込みやすい / オーバーワーク傾向あり
 - 問題は「頑張り不足」ではなく「高出力運転」であること
+- 疲労度が低ければ追加タスクもこなせる
 
 【AI秘書の行動原則】
 - ユーザーを責めない
@@ -142,6 +143,67 @@ ${calendarList}
 （今週の本数／目標、残り本数、今日書くべきか一言）
 
 （AI秘書からの一言アドバイス：休日なら脳科学ベースの時間配分も提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない・実務的に。）
+`.trim();
+
+  return callClaude(prompt);
+}
+
+export async function generateEveningComment(
+  workType: string | null,
+  completedTasks: NotionTask[],
+  inProgressTasks: NotionTask[],
+  tomorrowTasks: NotionTask[],
+  tomorrowCalendarEvents: any[] = []
+): Promise<string> {
+  const completedList = completedTasks.length > 0
+    ? completedTasks.map((t) => `・${t.name}`).join('\n')
+    : 'なし';
+  const inProgressList = inProgressTasks.length > 0
+    ? inProgressTasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
+    : 'なし';
+  const tomorrowTaskList = tomorrowTasks.length > 0
+    ? tomorrowTasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
+    : 'なし';
+  const tomorrowCalList = tomorrowCalendarEvents.length > 0
+    ? tomorrowCalendarEvents.filter((e: any) => !e.isWorkType).map((e: any) => `・${e.title}（${e.start}）`).join('\n')
+    : 'なし';
+  const tomorrowWorkType = tomorrowCalendarEvents.find((e: any) => e.isWorkType)?.workType ?? null;
+
+  const prompt = `
+今日の振り返りと明日の準備のLINE通知メッセージを生成してください。
+
+【今日の勤務】
+${workType ?? '未設定'}
+
+【今日完了したタスク】
+${completedList}
+
+【進行中・未完了タスク】
+${inProgressList}
+
+【明日の勤務】
+${tomorrowWorkType ?? '未設定'}
+
+【明日のタスク】
+${tomorrowTaskList}
+
+【明日のカレンダー予定】
+${tomorrowCalList}
+
+以下のフォーマットで出力してください：
+
+おつかれさまです 🌙
+
+【今日の完了】
+（完了タスク一覧）
+
+【進行中】
+（進行中タスクがあれば記載、なければ省略）
+
+【明日の予定】
+（明日の勤務・タスク・カレンダー予定）
+
+（AI秘書からの一言：今日の頑張りを認める。明日に向けた無理のないアドバイス。2〜3文。責めない。）
 `.trim();
 
   return callClaude(prompt);
