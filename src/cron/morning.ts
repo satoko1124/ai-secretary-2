@@ -2,7 +2,7 @@ import { fetchTodayTasks, fetchTodayWorkType, resetDailyTasks, fetchWeeklyNoteCo
 import { fetchWorkTypeFromCalendar, fetchTodayCalendarEvents } from '../google/calendar';
 import { generateMorningComment } from '../gemini/comment';
 import { sendLineMessage } from '../line/sender';
-import { selectOneAction } from '../claude/oneAction';
+import { selectOneAction, Task } from '../claude/oneAction';
 
 export async function runMorningNotification(): Promise<void> {
   console.log('🌅 毎朝通知を開始します...');
@@ -43,8 +43,17 @@ export async function runMorningNotification(): Promise<void> {
       weekRemainingTasks
     );
 
+    const oneActionTasks: Task[] = tasks.map((t: any) => ({
+      id: t.id,
+      name: t.name,
+      weight: (t.weight ?? '軽') as '軽' | '中' | '重',
+      priority: t.priority ?? undefined,
+      status: t.status,
+      isDaily: t.isDaily ?? false,
+    }));
+
     const oneAction = await selectOneAction({
-      tasks: tasks,
+      tasks: oneActionTasks,
       workType: workType ?? '通常勤務',
       todayDate: new Date().toLocaleDateString('ja-JP', {
         timeZone: 'Asia/Tokyo',
