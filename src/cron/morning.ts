@@ -2,15 +2,13 @@ import { fetchTodayTasks, fetchTodayWorkType, resetDailyTasks, fetchWeeklyNoteCo
 import { fetchWorkTypeFromCalendar, fetchTodayCalendarEvents } from '../google/calendar';
 import { generateMorningComment } from '../gemini/comment';
 import { sendLineMessage } from '../line/sender';
+import { selectOneAction } from '../claude/oneAction';
 
 export async function runMorningNotification(): Promise<void> {
   console.log('🌅 毎朝通知を開始します...');
-
   try {
-    // 毎日タスクをリセット
     await resetDailyTasks();
 
-    // Notionからデータ取得
     const [tasks, notionWorkType, weeklyNoteCount, weekRemainingTasks] = await Promise.all([
       fetchTodayTasks(),
       fetchTodayWorkType(),
@@ -18,10 +16,8 @@ export async function runMorningNotification(): Promise<void> {
       fetchWeekRemainingTasks(),
     ]);
 
-    // Googleカレンダーから勤務・予定取得
     let workType = notionWorkType;
     let calendarEvents: any[] = [];
-
     try {
       const [calWorkType, events] = await Promise.all([
         fetchWorkTypeFromCalendar(),
@@ -46,7 +42,20 @@ export async function runMorningNotification(): Promise<void> {
       calendarEvents,
       weekRemainingTasks
     );
+
+    const oneAction = await selectOneAction({
+      tasks: tasks,
+      workType: workType ?? '通常勤務',
+      todayDate: new Date().toLocaleDateString('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }),
+    });
+
     await sendLineMessage(message);
+    await sendLineMessage(oneAction.message);
 
     console.log('✅ 毎朝通知が完了しました');
   } catch (err) {
