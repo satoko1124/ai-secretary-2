@@ -97,7 +97,6 @@ export async function fetchTodayTasks(): Promise<NotionTask[]> {
     .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
-// 今日の完了タスクを取得
 export async function fetchTodayCompletedTasks(): Promise<NotionTask[]> {
   const today = todayString();
 
@@ -126,7 +125,6 @@ export async function fetchTodayCompletedTasks(): Promise<NotionTask[]> {
     .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
-// 今日の進行中タスクを取得
 export async function fetchTodayInProgressTasks(): Promise<NotionTask[]> {
   const today = todayString();
 
@@ -155,7 +153,6 @@ export async function fetchTodayInProgressTasks(): Promise<NotionTask[]> {
     .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
-// 明日のタスクを取得
 export async function fetchTomorrowInfo(): Promise<NotionTask[]> {
   const tomorrow = tomorrowString();
 
@@ -170,7 +167,6 @@ export async function fetchTomorrowInfo(): Promise<NotionTask[]> {
     .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
-// 明日の勤務種類を取得
 export async function fetchTomorrowWorkType(): Promise<string | null> {
   const tomorrow = tomorrowString();
 
@@ -378,7 +374,7 @@ export async function fetchMonthlyStats(): Promise<MonthlyStats> {
     heavyTaskCount: completed.filter((t) => t.weight === '重').length,
   };
 }
-// タスクを完了にする
+
 export async function completeNotionTask(taskName: string): Promise<void> {
   const res = await notion.databases.query({
     database_id: DATABASE_ID,
@@ -388,24 +384,42 @@ export async function completeNotionTask(taskName: string): Promise<void> {
   if (res.results.length === 0) throw new Error('タスクが見つかりません');
 
   const page = res.results[0];
-  await (notion.pages.update as any)({
-    page_id: page.id,
-    properties: {
-      '状態': { status: { name: '完了' } },
-    },
-  });
+  try {
+    await (notion.pages.update as any)({
+      page_id: page.id,
+      properties: {
+        '状態': { status: { name: '完了' } },
+      },
+    });
+  } catch {
+    await (notion.pages.update as any)({
+      page_id: page.id,
+      properties: {
+        '状態': { select: { name: '完了' } },
+      },
+    });
+  }
 }
 
-// タスクを追加する
 export async function addNotionTask(taskName: string): Promise<void> {
   const today = todayString();
-  await (notion.pages.create as any)({
-    parent: { database_id: DATABASE_ID },
-    properties: {
-      '名前': { title: [{ text: { content: taskName } }] },
-      '日付': { date: { start: today } },
-      '状態': { status: { name: '未着手' } },
-      '重さ': { select: { name: '軽' } },
-    },
-  });
+  try {
+    await (notion.pages.create as any)({
+      parent: { database_id: DATABASE_ID },
+      properties: {
+        '名前': { title: [{ text: { content: taskName } }] },
+        '日付': { date: { start: today } },
+        '状態': { status: { name: '未着手' } },
+      },
+    });
+  } catch {
+    await (notion.pages.create as any)({
+      parent: { database_id: DATABASE_ID },
+      properties: {
+        '名前': { title: [{ text: { content: taskName } }] },
+        '日付': { date: { start: today } },
+        '状態': { select: { name: '未着手' } },
+      },
+    });
+  }
 }
