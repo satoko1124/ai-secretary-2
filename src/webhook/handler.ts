@@ -15,10 +15,14 @@ export async function handleLineMessage(
   userId: string,
   text: string
 ): Promise<void> {
+  console.log(`受信メッセージ: "${text}"`);
   const trimmed = text.trim();
 
-  if (trimmed.startsWith('完了:') || trimmed.startsWith('完了：')) {
-    const taskName = trimmed.replace(/^完了[：:]/, '').trim();
+  // 完了コマンド（全角・半角コロン両対応）
+  const kanryoMatch = trimmed.match(/^完了[：:]\s*(.+)/);
+  if (kanryoMatch) {
+    const taskName = kanryoMatch[1].trim();
+    console.log(`完了コマンド: "${taskName}"`);
     try {
       await completeNotionTask(taskName);
       await sendLineMessage(`✅ 「${taskName}」を完了にしました！`);
@@ -28,17 +32,22 @@ export async function handleLineMessage(
     return;
   }
 
-  if (trimmed.startsWith('追加:') || trimmed.startsWith('追加：')) {
-    const taskName = trimmed.replace(/^追加[：:]/, '').trim();
+  // 追加コマンド（全角・半角コロン両対応）
+  const tsuikaMatch = trimmed.match(/^追加[：:]\s*(.+)/);
+  if (tsuikaMatch) {
+    const taskName = tsuikaMatch[1].trim();
+    console.log(`追加コマンド: "${taskName}"`);
     try {
       await addNotionTask(taskName);
       await sendLineMessage(`📝 「${taskName}」を追加しました！`);
-    } catch {
+    } catch (err) {
+      console.error('追加エラー:', err);
       await sendLineMessage(`❌ タスクの追加に失敗しました。`);
     }
     return;
   }
 
+  // タスク一覧
   if (trimmed === 'タスク') {
     try {
       const [tasks, workType] = await Promise.all([
@@ -60,6 +69,7 @@ export async function handleLineMessage(
     return;
   }
 
+  // ヘルプ
   if (trimmed === 'ヘルプ' || trimmed === 'help') {
     await sendLineMessage(
       `🤖 使えるコマンド一覧\n\n` +
@@ -70,5 +80,7 @@ export async function handleLineMessage(
     return;
   }
 
+  // それ以外
+  console.log(`未認識メッセージ: "${trimmed}"`);
   await sendLineMessage(`「ヘルプ」と送るとコマンド一覧が見られます😊`);
 }
