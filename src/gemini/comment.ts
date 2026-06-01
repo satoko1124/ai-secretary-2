@@ -19,6 +19,8 @@ const BASE_SYSTEM_PROMPT = `
 - オーバーワークを防ぐ
 - 回復を予定として組み込む
 - 継続可能性を最優先する
+- アスタリスク（*）を使わない。強調したい場合は「！」や絵文字を使う
+- 箇条書きは「・」を使う
 
 【タスク負荷基準】
 - 軽：X投稿、アファメーション、SNS確認、ノーラの動画
@@ -77,11 +79,15 @@ async function callClaude(prompt: string): Promise<string> {
 export async function generateMorningComment(
   workType: string | null,
   tasks: NotionTask[],
+  inProgressTasks: NotionTask[],
   weeklyNoteCount: number,
   calendarEvents: any[] = [],
   weekRemainingTasks: NotionTask[] = []
 ): Promise<string> {
   const taskList = tasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n');
+  const inProgressList = inProgressTasks.length > 0
+    ? inProgressTasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
+    : 'なし';
   const heavyTasks = tasks.filter((t) => t.weight === '重');
   const mediumTasks = tasks.filter((t) => t.weight === '中');
   const noteRemaining = Math.max(0, 3 - weeklyNoteCount);
@@ -124,12 +130,16 @@ export async function generateMorningComment(
 
   const prompt = `
 今日の状況を分析して、毎朝のLINE通知メッセージを生成してください。
+アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
 
 【今日の勤務】
 ${workType ?? '未設定'}
 
 【今日は休日か勤務日か】
 ${isHoliday ? '休日（脳科学ベースのタスク配分を推奨）' : '勤務日（病院勤務が主体。創作タスクは補助的に）'}
+
+【進行中のタスク】
+${inProgressList}
 
 【今日のタスク一覧】
 ${taskList || 'なし'}
@@ -160,6 +170,9 @@ ${taskFocusAdvice || 'なし'}
 【勤務】
 （勤務種類）
 
+【進行中】
+（進行中タスクがあれば記載、なければ省略）
+
 【今日の予定】
 （タスク一覧）
 
@@ -173,12 +186,13 @@ ${taskFocusAdvice || 'なし'}
 （重タスクがあれば記載、なければ「今日は重タスクなし」）
 
 📝 note進捗
-（今週の本数／目標、残り本数、今日書くべきか一言）
+（今週の本数／目標、残り本数をシンプルに。今日書くべきか一言。アスタリスクなし）
 
 💪 今日の集中ポイント
-（【今日の重・中タスクアドバイス】をもとに1〜2文で。勤務種別に応じた重・中タスクへの取り組み方を具体的に。）
+（勤務種別に応じた重・中タスクへの取り組み方を1〜2文で。アスタリスクなし）
 
-（AI秘書からの一言アドバイス：休日なら脳科学ベースの時間配分も提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない・実務的に。）
+AI秘書からひとこと：
+（休日なら脳科学ベースの時間配分も提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない。アスタリスクなし）
 `.trim();
 
   return callClaude(prompt);
@@ -207,6 +221,7 @@ export async function generateEveningComment(
 
   const prompt = `
 今日の振り返りと明日の準備のLINE通知メッセージを生成してください。
+アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
 
 【今日の勤務】
 ${workType ?? '未設定'}
@@ -239,17 +254,19 @@ ${tomorrowCalList}
 【明日の予定】
 （明日の勤務・タスク・カレンダー予定）
 
-（AI秘書からの一言：今日の頑張りを認める。明日に向けた無理のないアドバイス。2〜3文。責めない。）
+AI秘書からひとこと：
+（今日の頑張りを認める。明日に向けた無理のないアドバイス。2〜3文。責めない。アスタリスクなし）
 `.trim();
 
   return callClaude(prompt);
 }
 
 export async function generateWeeklyComment(stats: WeeklyStats): Promise<string> {
-  const noteAchievement = stats.noteCount >= 3 ? '✅ 達成！' : `あと${3 - stats.noteCount}本`;
+  const noteAchievement = stats.noteCount >= 3 ? '達成！' : `あと${3 - stats.noteCount}本`;
 
   const prompt = `
 今週の活動データを分析して、週報LINEメッセージを生成してください。
+アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
 
 【今週の実績】
 ・完了タスク数：${stats.completedCount}個
@@ -267,7 +284,7 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 
 以下のフォーマットで出力してください：
 
-【今週の週報】
+今週の週報 📊
 
 おつかれさまでした ☀️
 
@@ -278,10 +295,10 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 （勤務まとめ）
 
 ■ AI分析
-（2〜4文。反省会にしない。頑張りを可視化する。）
+（2〜4文。反省会にしない。頑張りを可視化する。アスタリスクなし）
 
 ■ 来週の提案
-（2〜3点。箇条書き。）
+（2〜3点。箇条書きは「・」を使う）
 `.trim();
 
   return callClaude(prompt);
@@ -289,11 +306,12 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 
 export async function generateMonthlyComment(stats: MonthlyStats): Promise<string> {
   const noteAchievement = stats.noteCount >= 12
-    ? '✅ 週3本ペース達成！'
+    ? '週3本ペース達成！'
     : `週平均${(stats.noteCount / 4).toFixed(1)}本`;
 
   const prompt = `
 先月の活動データを分析して、月報LINEメッセージを生成してください。
+アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
 
 【${stats.monthName}の実績】
 ・完了タスク数：${stats.completedCount}個
@@ -312,7 +330,7 @@ export async function generateMonthlyComment(stats: MonthlyStats): Promise<strin
 
 以下のフォーマットで出力してください：
 
-【${stats.monthName}の月報】
+${stats.monthName}の月報 📅
 
 おつかれさまでした ☀️
 
@@ -323,10 +341,10 @@ export async function generateMonthlyComment(stats: MonthlyStats): Promise<strin
 （勤務まとめ）
 
 ■ AI分析
-（先月の総括。3〜5文。頑張りを可視化。反省会にしない。）
+（先月の総括。3〜5文。頑張りを可視化。反省会にしない。アスタリスクなし）
 
 ■ 来月の提案
-（具体的な提案を2〜3点。）
+（具体的な提案を2〜3点。箇条書きは「・」を使う）
 `.trim();
 
   return callClaude(prompt);
