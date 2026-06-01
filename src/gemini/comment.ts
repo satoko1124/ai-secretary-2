@@ -83,6 +83,7 @@ export async function generateMorningComment(
 ): Promise<string> {
   const taskList = tasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n');
   const heavyTasks = tasks.filter((t) => t.weight === '重');
+  const mediumTasks = tasks.filter((t) => t.weight === '中');
   const noteRemaining = Math.max(0, 3 - weeklyNoteCount);
   const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
   const dayOfWeek = today.getDay();
@@ -94,6 +95,32 @@ export async function generateMorningComment(
   const weekTaskList = weekRemainingTasks.length > 0
     ? weekRemainingTasks.map((t: NotionTask) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
     : 'なし';
+
+  // 勤務種別ごとの重・中タスク推奨メッセージ
+  let taskFocusAdvice = '';
+  if (workType === '休み' || workType === null) {
+    if (heavyTasks.length > 0) {
+      taskFocusAdvice = `今日は休日です。午前中に重タスク「${heavyTasks[0].name}」に集中しましょう。`;
+    } else if (mediumTasks.length > 0) {
+      taskFocusAdvice = `今日は休日です。中タスク「${mediumTasks[0].name}」をじっくり進めましょう。`;
+    }
+  } else if (workType === '通常勤務') {
+    if (heavyTasks.length > 0) {
+      taskFocusAdvice = `帰宅後に余力があれば重タスク「${heavyTasks[0].name}」に取り組めます。`;
+    } else if (mediumTasks.length > 0) {
+      taskFocusAdvice = `帰宅後に中タスク「${mediumTasks[0].name}」を1つこなせそうです。`;
+    }
+  } else if (workType === '早番') {
+    if (mediumTasks.length > 0) {
+      taskFocusAdvice = `早番の日は夕方に中タスク「${mediumTasks[0].name}」が狙い目です。`;
+    } else {
+      taskFocusAdvice = `早番の日は軽タスクを中心に無理なく進めましょう。`;
+    }
+  } else if (workType === '平日当直' || workType === '土日当直') {
+    taskFocusAdvice = `当直日は重タスクはお休み。軽タスクだけでOKです。`;
+  } else if (workType === '当直明け') {
+    taskFocusAdvice = `当直明けは回復優先。今日は軽タスクだけにしましょう。`;
+  }
 
   const prompt = `
 今日の状況を分析して、毎朝のLINE通知メッセージを生成してください。
@@ -113,12 +140,18 @@ ${weekTaskList}
 【重タスク数】
 ${heavyTasks.length}個（${heavyTasks.map((t) => t.name).join('、') || 'なし'}）
 
+【中タスク数】
+${mediumTasks.length}個（${mediumTasks.map((t) => t.name).join('、') || 'なし'}）
+
 【Googleカレンダーの予定】
 ${calendarList}
 
 【note進捗】
 今週：${weeklyNoteCount}本 / 目標3本
 残り：${noteRemaining}本（今週残り${daysLeft}日）
+
+【今日の重・中タスクアドバイス】
+${taskFocusAdvice || 'なし'}
 
 以下のフォーマットで出力してください：
 
@@ -141,6 +174,9 @@ ${calendarList}
 
 📝 note進捗
 （今週の本数／目標、残り本数、今日書くべきか一言）
+
+💪 今日の集中ポイント
+（【今日の重・中タスクアドバイス】をもとに1〜2文で。勤務種別に応じた重・中タスクへの取り組み方を具体的に。）
 
 （AI秘書からの一言アドバイス：休日なら脳科学ベースの時間配分も提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない・実務的に。）
 `.trim();
