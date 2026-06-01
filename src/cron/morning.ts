@@ -1,4 +1,4 @@
-import { fetchTodayTasks, fetchTodayWorkType, resetDailyTasks, fetchWeeklyNoteCount, fetchWeekRemainingTasks } from '../notion/client';
+import { fetchTodayTasks, fetchTodayWorkType, resetDailyTasks, fetchWeeklyNoteCount, fetchWeekRemainingTasks, fetchTodayInProgressTasks } from '../notion/client';
 import { fetchWorkTypeFromCalendar, fetchTodayCalendarEvents } from '../google/calendar';
 import { generateMorningComment } from '../gemini/comment';
 import { sendLineMessage } from '../line/sender';
@@ -8,8 +8,9 @@ export async function runMorningNotification(): Promise<void> {
   try {
     await resetDailyTasks();
 
-    const [tasks, notionWorkType, weeklyNoteCount, weekRemainingTasks] = await Promise.all([
+    const [tasks, inProgressTasks, notionWorkType, weeklyNoteCount, weekRemainingTasks] = await Promise.all([
       fetchTodayTasks(),
+      fetchTodayInProgressTasks(),
       fetchTodayWorkType(),
       fetchWeeklyNoteCount(),
       fetchWeekRemainingTasks(),
@@ -31,19 +32,20 @@ export async function runMorningNotification(): Promise<void> {
 
     console.log(`勤務種類: ${workType ?? '未設定'}`);
     console.log(`今日のタスク: ${tasks.length}件`);
+    console.log(`進行中タスク: ${inProgressTasks.length}件`);
     console.log(`今週の残りタスク: ${weekRemainingTasks.length}件`);
     console.log(`今週のnote: ${weeklyNoteCount}本`);
 
     const message = await generateMorningComment(
       workType,
       tasks,
+      inProgressTasks,
       weeklyNoteCount,
       calendarEvents,
       weekRemainingTasks
     );
 
     await sendLineMessage(message);
-
     console.log('✅ 毎朝通知が完了しました');
   } catch (err) {
     console.error('❌ 毎朝通知でエラーが発生しました:', err);
