@@ -1,5 +1,6 @@
 import * as http from 'http';
 import { verifyLineSignature, handleLineMessage } from './handler';
+import '../cron/scheduler';
 
 const PORT = process.env.PORT || 3000;
 
