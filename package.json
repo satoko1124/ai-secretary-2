@@ -5,8 +5,8 @@
   "main": "dist/webhook/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "npm run build && node dist/webhook/server.js",
-    "start:webhook": "npm run build && node dist/webhook/server.js",
+    "start": "node dist/webhook/server.js",
+    "start:webhook": "node dist/webhook/server.js",
     "dev": "ts-node src/index.ts",
     "test:morning": "ts-node src/test-morning.ts",
     "test:weekly": "ts-node src/test-weekly.ts",
