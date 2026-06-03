@@ -1,8 +1,8 @@
 import * as nodeCron from 'node-cron';
 import { runMorningNotification } from './morning';
 import { runEveningNotification } from './evening';
-import { runWeeklyNotification } from './weekly';
-import { runMonthlyNotification } from './monthly';
+import { runWeeklyReport } from './weekly';
+import { runMonthlyReport } from './monthly';
 
 console.log('🤖 AI秘書スケジューラーを起動します...');
 
@@ -30,7 +30,7 @@ nodeCron.schedule('0 21 * * *', async () => {
 nodeCron.schedule('0 21 * * 0', async () => {
   console.log('📊 週報通知を実行します...');
   try {
-    await runWeeklyNotification();
+    await runWeeklyReport();
   } catch (err) {
     console.error('週報通知エラー:', err);
   }
@@ -40,7 +40,7 @@ nodeCron.schedule('0 21 * * 0', async () => {
 nodeCron.schedule('0 9 1 * *', async () => {
   console.log('📅 月報通知を実行します...');
   try {
-    await runMonthlyNotification();
+    await runMonthlyReport();
   } catch (err) {
     console.error('月報通知エラー:', err);
   }
