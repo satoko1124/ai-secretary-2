@@ -25,10 +25,11 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
   if (!calendarId) throw new Error('GOOGLE_CALENDAR_ID が設定されていません');
   const calendar = await getCalendarClient();
 
-  // 日本時間で正確に日付範囲を設定
-  const [year, month, day] = dateStr.split('-').map(Number);
-  const startOfDay = new Date(Date.UTC(year, month - 1, day, -9, 0, 0)); // JST 0:00 = UTC -9:00
-  const endOfDay = new Date(Date.UTC(year, month - 1, day, 14, 59, 59)); // JST 23:59 = UTC 14:59
+  // 日本時間の0:00〜23:59をUTCに変換（JST = UTC+9）
+  const startOfDay = new Date(`${dateStr}T00:00:00+09:00`);
+  const endOfDay = new Date(`${dateStr}T23:59:59+09:00`);
+
+  console.log(`カレンダー取得範囲: ${startOfDay.toISOString()} 〜 ${endOfDay.toISOString()}`);
 
   const res = await calendar.events.list({
     calendarId,
@@ -39,6 +40,9 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
   });
 
   const events = res.data.items ?? [];
+  console.log(`取得したイベント数: ${events.length}`);
+  events.forEach(e => console.log(`イベント: ${e.summary}`));
+
   return events.map((event) => {
     const title = event.summary ?? '';
     const workType = WORK_TYPES.find((w) => title.includes(w)) ?? null;
