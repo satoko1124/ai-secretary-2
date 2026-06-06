@@ -1,28 +1,33 @@
-import { fetchTodayCompletedTasks, fetchTodayInProgressTasks, fetchTodayWorkType, fetchTomorrowInfo } from '../notion/client';
-import { fetchTomorrowCalendarEvents } from '../google/calendar';
+import { fetchTodayCompletedTasks, fetchTodayInProgressTasks, fetchTomorrowInfo } from '../notion/client';
+import { fetchWorkTypeFromCalendar, fetchTodayCalendarEvents, fetchTomorrowCalendarEvents } from '../google/calendar';
 import { generateEveningComment } from '../gemini/comment';
 import { sendLineMessage } from '../line/sender';
 
 export async function runEveningNotification(): Promise<void> {
   console.log('🌙 夜の振り返り通知を開始します...');
-
   try {
-    const [completedTasks, inProgressTasks, workType, tomorrowTasks] = await Promise.all([
+    const [completedTasks, inProgressTasks, tomorrowTasks] = await Promise.all([
       fetchTodayCompletedTasks(),
       fetchTodayInProgressTasks(),
-      fetchTodayWorkType(),
       fetchTomorrowInfo(),
     ]);
 
+    let workType: string | null = null;
     let tomorrowCalendarEvents: any[] = [];
     try {
-      tomorrowCalendarEvents = await fetchTomorrowCalendarEvents();
+      const [calWorkType, tomorrowEvents] = await Promise.all([
+        fetchWorkTypeFromCalendar(),
+        fetchTomorrowCalendarEvents(),
+      ]);
+      workType = calWorkType;
+      tomorrowCalendarEvents = tomorrowEvents;
     } catch (err) {
-      console.warn('明日のGoogleカレンダー取得失敗:', err);
+      console.warn('Googleカレンダー取得失敗:', err);
     }
 
     console.log(`今日の完了タスク: ${completedTasks.length}件`);
     console.log(`進行中タスク: ${inProgressTasks.length}件`);
+    console.log(`勤務種類: ${workType ?? '未設定'}`);
 
     const message = await generateEveningComment(
       workType,
@@ -31,8 +36,8 @@ export async function runEveningNotification(): Promise<void> {
       tomorrowTasks,
       tomorrowCalendarEvents
     );
-    await sendLineMessage(message);
 
+    await sendLineMessage(message);
     console.log('✅ 夜の振り返り通知が完了しました');
   } catch (err) {
     console.error('❌ 夜の振り返り通知でエラーが発生しました:', err);
