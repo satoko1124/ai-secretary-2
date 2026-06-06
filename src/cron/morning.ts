@@ -1,4 +1,4 @@
-import { fetchTodayTasks, fetchTodayWorkType, resetDailyTasks, fetchWeeklyNoteCount, fetchWeekRemainingTasks, fetchTodayInProgressTasks } from '../notion/client';
+import { fetchTodayTasks, fetchTodayInProgressTasks, resetDailyTasks, fetchWeeklyNoteCount, fetchWeekRemainingTasks } from '../notion/client';
 import { fetchWorkTypeFromCalendar, fetchTodayCalendarEvents } from '../google/calendar';
 import { generateMorningComment } from '../gemini/comment';
 import { sendLineMessage } from '../line/sender';
@@ -8,26 +8,25 @@ export async function runMorningNotification(): Promise<void> {
   try {
     await resetDailyTasks();
 
-    const [tasks, inProgressTasks, notionWorkType, weeklyNoteCount, weekRemainingTasks] = await Promise.all([
+    const [tasks, inProgressTasks, weeklyNoteCount, weekRemainingTasks] = await Promise.all([
       fetchTodayTasks(),
       fetchTodayInProgressTasks(),
-      fetchTodayWorkType(),
       fetchWeeklyNoteCount(),
       fetchWeekRemainingTasks(),
     ]);
 
-    let workType = notionWorkType;
+    let workType: string | null = null;
     let calendarEvents: any[] = [];
     try {
       const [calWorkType, events] = await Promise.all([
         fetchWorkTypeFromCalendar(),
         fetchTodayCalendarEvents(),
       ]);
-      if (calWorkType) workType = calWorkType;
+      workType = calWorkType;
       calendarEvents = events.filter((e) => !e.isWorkType);
       console.log(`Googleカレンダー予定: ${calendarEvents.length}件`);
     } catch (err) {
-      console.warn('Googleカレンダー取得失敗（Notionで代替）:', err);
+      console.warn('Googleカレンダー取得失敗:', err);
     }
 
     console.log(`勤務種類: ${workType ?? '未設定'}`);
