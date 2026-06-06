@@ -84,22 +84,22 @@ export async function generateMorningComment(
   calendarEvents: any[] = [],
   weekRemainingTasks: NotionTask[] = []
 ): Promise<string> {
-  const taskList = tasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n');
+  const taskList = tasks.map((t) => `・${t.name}`).join('\n');
   const inProgressList = inProgressTasks.length > 0
-    ? inProgressTasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
+    ? inProgressTasks.map((t) => `・${t.name}`).join('\n')
     : 'なし';
   const heavyTasks = tasks.filter((t) => t.weight === '重');
   const mediumTasks = tasks.filter((t) => t.weight === '中');
   const noteRemaining = Math.max(0, 3 - weeklyNoteCount);
-  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  const dayOfWeek = today.getDay();
+  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
+  const dayOfWeek = today.getUTCDay();
   const daysLeft = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
   const calendarList = calendarEvents.length > 0
     ? calendarEvents.map((e: any) => `・${e.title}（${e.start}）`).join('\n')
     : 'なし';
   const isHoliday = workType === '休み' || workType === null;
   const weekTaskList = weekRemainingTasks.length > 0
-    ? weekRemainingTasks.map((t: NotionTask) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
+    ? weekRemainingTasks.map((t: NotionTask) => `・${t.name}`).join('\n')
     : 'なし';
 
   // 勤務種別ごとの重・中タスク推奨メッセージ
@@ -147,10 +147,10 @@ ${taskList || 'なし'}
 【今週の残りタスク（今日以降）】
 ${weekTaskList}
 
-【重タスク数】
+【重タスク】
 ${heavyTasks.length}個（${heavyTasks.map((t) => t.name).join('、') || 'なし'}）
 
-【中タスク数】
+【中タスク】
 ${mediumTasks.length}個（${mediumTasks.map((t) => t.name).join('、') || 'なし'}）
 
 【Googleカレンダーの予定】
@@ -174,16 +174,16 @@ ${taskFocusAdvice || 'なし'}
 （進行中タスクがあれば記載、なければ省略）
 
 【今日の予定】
-（タスク一覧）
+（タスク名のみ。重さの表記なし）
 
 【カレンダーの予定】
 （Googleカレンダーの予定があれば記載、なければ省略）
 
 【今日やるといいタスク】
-（今週の残りタスクから今日できそうなものを1〜2個提案）
+（中・重タスクを優先して今日できそうなものを1〜2個提案。タスク名のみ）
 
 【重タスク】
-（重タスクがあれば記載、なければ「今日は重タスクなし」）
+（重タスクがあれば名前のみ記載、なければ「今日は重タスクなし」）
 
 📝 note進捗
 （今週の本数／目標、残り本数をシンプルに。今日書くべきか一言。アスタリスクなし）
@@ -198,154 +198,4 @@ AI秘書からひとこと：
   return callClaude(prompt);
 }
 
-export async function generateEveningComment(
-  workType: string | null,
-  completedTasks: NotionTask[],
-  inProgressTasks: NotionTask[],
-  tomorrowTasks: NotionTask[],
-  tomorrowCalendarEvents: any[] = []
-): Promise<string> {
-  const completedList = completedTasks.length > 0
-    ? completedTasks.map((t) => `・${t.name}`).join('\n')
-    : 'なし';
-  const inProgressList = inProgressTasks.length > 0
-    ? inProgressTasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
-    : 'なし';
-  const tomorrowTaskList = tomorrowTasks.length > 0
-    ? tomorrowTasks.map((t) => `・${t.name}（${t.weight ?? '未設定'}）`).join('\n')
-    : 'なし';
-  const tomorrowCalList = tomorrowCalendarEvents.length > 0
-    ? tomorrowCalendarEvents.filter((e: any) => !e.isWorkType).map((e: any) => `・${e.title}（${e.start}）`).join('\n')
-    : 'なし';
-  const tomorrowWorkType = tomorrowCalendarEvents.find((e: any) => e.isWorkType)?.workType ?? null;
-
-  const prompt = `
-今日の振り返りと明日の準備のLINE通知メッセージを生成してください。
-アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
-
-【今日の勤務】
-${workType ?? '未設定'}
-
-【今日完了したタスク】
-${completedList}
-
-【進行中・未完了タスク】
-${inProgressList}
-
-【明日の勤務】
-${tomorrowWorkType ?? '未設定'}
-
-【明日のタスク】
-${tomorrowTaskList}
-
-【明日のカレンダー予定】
-${tomorrowCalList}
-
-以下のフォーマットで出力してください：
-
-おつかれさまです 🌙
-
-【今日の完了】
-（完了タスク一覧）
-
-【進行中】
-（進行中タスクがあれば記載、なければ省略）
-
-【明日の予定】
-（明日の勤務・タスク・カレンダー予定）
-
-AI秘書からひとこと：
-（今日の頑張りを認める。明日に向けた無理のないアドバイス。2〜3文。責めない。アスタリスクなし）
-`.trim();
-
-  return callClaude(prompt);
-}
-
-export async function generateWeeklyComment(stats: WeeklyStats): Promise<string> {
-  const noteAchievement = stats.noteCount >= 3 ? '達成！' : `あと${3 - stats.noteCount}本`;
-
-  const prompt = `
-今週の活動データを分析して、週報LINEメッセージを生成してください。
-アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
-
-【今週の実績】
-・完了タスク数：${stats.completedCount}個
-・ノーラ動画：${stats.noraVideos}本
-・note：${stats.noteCount}本（目標3本 ${noteAchievement}）
-・evolution学習：${Math.round(stats.evolutionMinutes / 60)}時間
-・X投稿：${stats.xPostCount}回
-・アファメーション：${stats.affirmationDays}日
-
-【今週の勤務】
-・通常勤務：${stats.normalWorkDays}日
-・当直：${stats.nightShiftCount}回
-・早番：${stats.morningShiftCount}日
-・当直明け：${stats.afterNightShiftDays}日
-
-以下のフォーマットで出力してください：
-
-今週の週報 📊
-
-おつかれさまでした ☀️
-
-■ 完了
-（実績一覧）
-
-■ 勤務
-（勤務まとめ）
-
-■ AI分析
-（2〜4文。反省会にしない。頑張りを可視化する。アスタリスクなし）
-
-■ 来週の提案
-（2〜3点。箇条書きは「・」を使う）
-`.trim();
-
-  return callClaude(prompt);
-}
-
-export async function generateMonthlyComment(stats: MonthlyStats): Promise<string> {
-  const noteAchievement = stats.noteCount >= 12
-    ? '週3本ペース達成！'
-    : `週平均${(stats.noteCount / 4).toFixed(1)}本`;
-
-  const prompt = `
-先月の活動データを分析して、月報LINEメッセージを生成してください。
-アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
-
-【${stats.monthName}の実績】
-・完了タスク数：${stats.completedCount}個
-・ノーラ動画：${stats.noraVideos}本
-・モナ動画：${stats.monaVideos}本
-・note：${stats.noteCount}本（${noteAchievement}）
-・X投稿：${stats.xPostCount}回
-・アファメーション：${stats.affirmationDays}日
-
-【${stats.monthName}の勤務】
-・通常勤務：${stats.normalWorkDays}日
-・当直：${stats.nightShiftCount}回
-・早番：${stats.morningShiftCount}日
-・当直明け：${stats.afterNightShiftDays}日
-・重タスク完了：${stats.heavyTaskCount}個
-
-以下のフォーマットで出力してください：
-
-${stats.monthName}の月報 📅
-
-おつかれさまでした ☀️
-
-■ 先月の実績
-（実績一覧）
-
-■ 勤務状況
-（勤務まとめ）
-
-■ AI分析
-（先月の総括。3〜5文。頑張りを可視化。反省会にしない。アスタリスクなし）
-
-■ 来月の提案
-（具体的な提案を2〜3点。箇条書きは「・」を使う）
-`.trim();
-
-  return callClaude(prompt);
-}
+export async function
