@@ -198,4 +198,149 @@ AI秘書からひとこと：
   return callClaude(prompt);
 }
 
-export async function
+export async function generateEveningComment(
+  workType: string | null,
+  completedTasks: NotionTask[],
+  inProgressTasks: NotionTask[],
+  tomorrowTasks: NotionTask[],
+  tomorrowCalendarEvents: any[] = []
+): Promise<string> {
+  const completedList = completedTasks.length > 0
+    ? completedTasks.map((t) => `・${t.name}`).join('\n')
+    : 'なし';
+  const inProgressList = inProgressTasks.length > 0
+    ? inProgressTasks.map((t) => `・${t.name}`).join('\n')
+    : 'なし';
+  const tomorrowTaskList = tomorrowTasks.length > 0
+    ? tomorrowTasks.map((t) => `・${t.name}`).join('\n')
+    : 'なし';
+  const tomorrowCalList = tomorrowCalendarEvents.length > 0
+    ? tomorrowCalendarEvents.filter((e: any) => !e.isWorkType).map((e: any) => `・${e.title}（${e.start}）`).join('\n')
+    : 'なし';
+  const tomorrowWorkType = tomorrowCalendarEvents.find((e: any) => e.isWorkType)?.workType ?? null;
+
+  const completedHeavy = completedTasks.filter((t) => t.weight === '重');
+  const completedMedium = completedTasks.filter((t) => t.weight === '中');
+
+  const prompt = `
+今日の振り返りと明日の準備のLINE通知メッセージを生成してください。
+アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
+
+【今日の勤務】
+${workType ?? '未設定'}
+
+【今日完了したタスク】
+${completedList}
+
+【今日完了した重タスク】
+${completedHeavy.length}個（${completedHeavy.map((t) => t.name).join('、') || 'なし'}）
+
+【今日完了した中タスク】
+${completedMedium.length}個（${completedMedium.map((t) => t.name).join('、') || 'なし'}）
+
+【進行中・未完了タスク】
+${inProgressList}
+
+【明日の勤務】
+${tomorrowWorkType ?? '未設定'}
+
+【明日のタスク】
+${tomorrowTaskList}
+
+【明日のカレンダー予定】
+${tomorrowCalList}
+
+以下のフォーマットで出力してください：
+
+おつかれさまです 🌙
+
+【今日の完了】
+（完了タスク一覧。タスク名のみ）
+
+【重・中タスクの達成】
+（今日完了した重・中タスクがあれば特記。なければ省略）
+
+【進行中】
+（進行中タスクがあれば記載、なければ省略）
+
+【明日の予定】
+（明日の勤務・タスク・カレンダー予定）
+
+AI秘書からひとこと：
+（今日の頑張りを認める。重・中タスクを完了した場合は特に褒める。明日に向けた無理のないアドバイス。2〜3文。責めない。アスタリスクなし）
+`.trim();
+
+  return callClaude(prompt);
+}
+
+export async function generateWeeklyComment(stats: WeeklyStats): Promise<string> {
+  const noteAchievement = stats.noteCount >= 3 ? '達成！' : `あと${3 - stats.noteCount}本`;
+
+  const prompt = `
+今週の活動データを分析して、週報LINEメッセージを生成してください。
+アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
+
+【今週の実績】
+・完了タスク数：${stats.completedCount}個
+・ノーラ動画：${stats.noraVideos}本
+・note：${stats.noteCount}本（目標3本 ${noteAchievement}）
+・evolution学習：${Math.round(stats.evolutionMinutes / 60)}時間
+・X投稿：${stats.xPostCount}回
+・アファメーション：${stats.affirmationDays}日
+・重タスク完了：${stats.heavyTaskCount}個
+
+以下のフォーマットで出力してください：
+
+今週の週報 📊
+
+おつかれさまでした ☀️
+
+■ 完了
+（実績一覧）
+
+■ AI分析
+（2〜4文。反省会にしない。頑張りを可視化する。重・中タスクの達成も評価する。アスタリスクなし）
+
+■ 来週の提案
+（2〜3点。箇条書きは「・」を使う）
+`.trim();
+
+  return callClaude(prompt);
+}
+
+export async function generateMonthlyComment(stats: MonthlyStats): Promise<string> {
+  const noteAchievement = stats.noteCount >= 12
+    ? '週3本ペース達成！'
+    : `週平均${(stats.noteCount / 4).toFixed(1)}本`;
+
+  const prompt = `
+先月の活動データを分析して、月報LINEメッセージを生成してください。
+アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
+
+【${stats.monthName}の実績】
+・完了タスク数：${stats.completedCount}個
+・ノーラ動画：${stats.noraVideos}本
+・モナ動画：${stats.monaVideos}本
+・note：${stats.noteCount}本（${noteAchievement}）
+・X投稿：${stats.xPostCount}回
+・アファメーション：${stats.affirmationDays}日
+・重タスク完了：${stats.heavyTaskCount}個
+
+以下のフォーマットで出力してください：
+
+${stats.monthName}の月報 📅
+
+おつかれさまでした ☀️
+
+■ 先月の実績
+（実績一覧）
+
+■ AI分析
+（先月の総括。3〜5文。頑張りを可視化。反省会にしない。重・中タスクの達成も評価する。アスタリスクなし）
+
+■ 来月の提案
+（具体的な提案を2〜3点。箇条書きは「・」を使う）
+`.trim();
+
+  return callClaude(prompt);
+}
