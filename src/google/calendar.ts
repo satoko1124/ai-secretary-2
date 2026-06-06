@@ -20,12 +20,19 @@ async function getCalendarClient() {
   return google.calendar({ version: 'v3', auth });
 }
 
+function getJSTDateString(offsetDays: number = 0): string {
+  const now = new Date();
+  // JST = UTC + 9時間
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  jst.setDate(jst.getDate() + offsetDays);
+  return jst.toISOString().slice(0, 10);
+}
+
 async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEvent[]> {
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
   if (!calendarId) throw new Error('GOOGLE_CALENDAR_ID が設定されていません');
   const calendar = await getCalendarClient();
 
-  // 日本時間の0:00〜23:59をUTCに変換（JST = UTC+9）
   const startOfDay = new Date(`${dateStr}T00:00:00+09:00`);
   const endOfDay = new Date(`${dateStr}T23:59:59+09:00`);
 
@@ -56,15 +63,14 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
 }
 
 export async function fetchTodayCalendarEvents(): Promise<CalendarEvent[]> {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = getJSTDateString(0);
+  console.log(`今日の日付(JST): ${todayStr}`);
   return fetchCalendarEventsForDate(todayStr);
 }
 
 export async function fetchTomorrowCalendarEvents(): Promise<CalendarEvent[]> {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  now.setDate(now.getDate() + 1);
-  const tomorrowStr = now.toISOString().slice(0, 10);
+  const tomorrowStr = getJSTDateString(1);
+  console.log(`明日の日付(JST): ${tomorrowStr}`);
   return fetchCalendarEventsForDate(tomorrowStr);
 }
 
