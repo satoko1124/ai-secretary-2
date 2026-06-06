@@ -29,7 +29,6 @@ function getDate(prop: any): string | null {
 function pageToTask(page: any): NotionTask {
   const props = page.properties;
   const name = getTitle(props['名前']);
-  const workTypeFromTitle = WORK_TYPES.includes(name) ? name : getSelect(props['勤務']);
   return {
     id: page.id,
     name,
@@ -38,30 +37,30 @@ function pageToTask(page: any): NotionTask {
     isDaily: getCheckbox(props['毎日']),
     weight: getSelect(props['重さ']),
     priority: getSelect(props['優先度']),
-    workType: workTypeFromTitle,
+    workType: null,
   };
 }
 
 function todayString(): string {
   const now = new Date();
-  const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return jst.toISOString().slice(0, 10);
 }
 
 function tomorrowString(): string {
   const now = new Date();
-  const jst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   jst.setDate(jst.getDate() + 1);
   return jst.toISOString().slice(0, 10);
 }
 
 function thisWeekRange(): { monday: string; sunday: string; today: string } {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  const dayOfWeek = now.getDay();
+  const now = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
+  const dayOfWeek = now.getUTCDay();
   const monday = new Date(now);
-  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+  monday.setUTCDate(now.getUTCDate() - ((dayOfWeek + 6) % 7));
   const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
   return {
     monday: monday.toISOString().slice(0, 10),
     sunday: sunday.toISOString().slice(0, 10),
@@ -167,21 +166,6 @@ export async function fetchTomorrowInfo(): Promise<NotionTask[]> {
     .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
-export async function fetchTomorrowWorkType(): Promise<string | null> {
-  const tomorrow = tomorrowString();
-
-  const res = await notion.databases.query({
-    database_id: DATABASE_ID,
-    filter: { property: '日付', date: { equals: tomorrow } },
-  });
-
-  for (const page of res.results) {
-    const name = getTitle((page as any).properties['名前']);
-    if (WORK_TYPES.includes(name)) return name;
-  }
-  return null;
-}
-
 export async function fetchWeekRemainingTasks(): Promise<NotionTask[]> {
   const { today, sunday } = thisWeekRange();
 
@@ -200,21 +184,6 @@ export async function fetchWeekRemainingTasks(): Promise<NotionTask[]> {
     .map(pageToTask)
     .filter((t) => t.name !== '' && t.status !== '完了' && t.status !== 'Done')
     .filter((t) => !WORK_TYPES.includes(t.name));
-}
-
-export async function fetchTodayWorkType(): Promise<string | null> {
-  const today = todayString();
-
-  const res = await notion.databases.query({
-    database_id: DATABASE_ID,
-    filter: { property: '日付', date: { equals: today } },
-  });
-
-  for (const page of res.results) {
-    const name = getTitle((page as any).properties['名前']);
-    if (WORK_TYPES.includes(name)) return name;
-  }
-  return null;
 }
 
 export async function resetDailyTasks(): Promise<void> {
@@ -278,14 +247,12 @@ export async function fetchWeeklyNoteCount(): Promise<number> {
 }
 
 export async function fetchWeeklyStats(): Promise<WeeklyStats> {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-  const dayOfWeek = now.getDay();
+  const now = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
+  const dayOfWeek = now.getUTCDay();
   const monday = new Date(now);
-  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
-  monday.setHours(0, 0, 0, 0);
+  monday.setUTCDate(now.getUTCDate() - ((dayOfWeek + 6) % 7));
   const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
 
   const mondayStr = monday.toISOString().slice(0, 10);
   const sundayStr = sunday.toISOString().slice(0, 10);
@@ -306,33 +273,29 @@ export async function fetchWeeklyStats(): Promise<WeeklyStats> {
     (t) => t.status === '完了' || t.status === 'Done' || t.status === 'done'
   );
 
-  const workTypesSet: string[] = tasks
-    .map((t) => t.name)
-    .filter((name) => WORK_TYPES.includes(name));
-
   return {
     completedCount: completed.length,
     noraVideos: completed.filter((t) => t.name.includes('ノーラ')).length,
     monaVideos: completed.filter((t) => t.name.includes('モナ')).length,
     noteCount: completed.filter((t) => t.name.includes('note') || t.name.includes('Note')).length,
     evolutionMinutes: completed.filter((t) => t.name.toLowerCase().includes('evolution')).length * 60,
-    xPostCount: completed.filter((t) => t.name.includes('X投稿')).length,
+    xPostCount: completed.filter((t) => t.name.includes('X投稿') || t.name.includes('Xに投稿')).length,
     affirmationDays: completed.filter((t) => t.name.includes('アファメーション') || t.name.includes('アフォメーション')).length,
-    normalWorkDays: workTypesSet.filter((w) => w === '通常勤務').length,
-    nightShiftCount: workTypesSet.filter((w) => w === '平日当直' || w === '土日当直').length,
-    morningShiftCount: workTypesSet.filter((w) => w === '早番').length,
-    afterNightShiftDays: workTypesSet.filter((w) => w === '当直明け').length,
+    normalWorkDays: 0,
+    nightShiftCount: 0,
+    morningShiftCount: 0,
+    afterNightShiftDays: 0,
     heavyTaskCount: completed.filter((t) => t.weight === '重').length,
-    workTypes: workTypesSet,
+    workTypes: [],
     taskNames: completed.map((t) => t.name),
   };
 }
 
 export async function fetchMonthlyStats(): Promise<MonthlyStats> {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
+  const now = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
 
-  const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+  const firstDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+  const lastDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
 
   const firstDayStr = firstDay.toISOString().slice(0, 10);
   const lastDayStr = lastDay.toISOString().slice(0, 10);
@@ -353,11 +316,7 @@ export async function fetchMonthlyStats(): Promise<MonthlyStats> {
     (t) => t.status === '完了' || t.status === 'Done'
   );
 
-  const workTypesSet: string[] = tasks
-    .map((t) => t.name)
-    .filter((name) => WORK_TYPES.includes(name));
-
-  const monthName = `${firstDay.getMonth() + 1}月`;
+  const monthName = `${firstDay.getUTCMonth() + 1}月`;
 
   return {
     monthName,
@@ -365,12 +324,12 @@ export async function fetchMonthlyStats(): Promise<MonthlyStats> {
     noraVideos: completed.filter((t) => t.name.includes('ノーラ')).length,
     monaVideos: completed.filter((t) => t.name.includes('モナ')).length,
     noteCount: completed.filter((t) => t.name.includes('note') || t.name.includes('Note')).length,
-    xPostCount: completed.filter((t) => t.name.includes('X投稿')).length,
+    xPostCount: completed.filter((t) => t.name.includes('X投稿') || t.name.includes('Xに投稿')).length,
     affirmationDays: completed.filter((t) => t.name.includes('アファメーション') || t.name.includes('アフォメーション')).length,
-    normalWorkDays: workTypesSet.filter((w) => w === '通常勤務').length,
-    nightShiftCount: workTypesSet.filter((w) => w === '平日当直' || w === '土日当直').length,
-    morningShiftCount: workTypesSet.filter((w) => w === '早番').length,
-    afterNightShiftDays: workTypesSet.filter((w) => w === '当直明け').length,
+    normalWorkDays: 0,
+    nightShiftCount: 0,
+    morningShiftCount: 0,
+    afterNightShiftDays: 0,
     heavyTaskCount: completed.filter((t) => t.weight === '重').length,
   };
 }
