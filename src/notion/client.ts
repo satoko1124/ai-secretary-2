@@ -74,7 +74,17 @@ export async function fetchTodayTasks(): Promise<NotionTask[]> {
   const [byDate, byDaily] = await Promise.all([
     notion.databases.query({
       database_id: DATABASE_ID,
-      filter: { property: '日付', date: { equals: today } },
+      filter: {
+        or: [
+          { property: '日付', date: { equals: today } },
+          {
+            and: [
+              { property: '日付', date: { on_or_before: today } },
+              { property: '日付', date: { is_not_empty: true } },
+            ]
+          }
+        ]
+      },
     }),
     notion.databases.query({
       database_id: DATABASE_ID,
@@ -125,30 +135,15 @@ export async function fetchTodayCompletedTasks(): Promise<NotionTask[]> {
 }
 
 export async function fetchTodayInProgressTasks(): Promise<NotionTask[]> {
-  const today = todayString();
-
-  const [byDate, byDaily] = await Promise.all([
-    notion.databases.query({
-      database_id: DATABASE_ID,
-      filter: { property: '日付', date: { equals: today } },
-    }),
-    notion.databases.query({
-      database_id: DATABASE_ID,
-      filter: { property: '毎日', checkbox: { equals: true } },
-    }),
-  ]);
-
-  const allPages = [...byDate.results, ...byDaily.results];
-  const seen = new Set<string>();
-  const unique = allPages.filter((p) => {
-    if (seen.has(p.id)) return false;
-    seen.add(p.id);
-    return true;
+  // 進行中タスクは日付に関係なく全て取得する
+  const res = await notion.databases.query({
+    database_id: DATABASE_ID,
+    page_size: 50,
   });
 
-  return unique
+  return res.results
     .map(pageToTask)
-    .filter((t) => t.name !== '' && t.status !== '完了' && t.status !== 'Done' && t.status !== '未着手')
+    .filter((t) => t.name !== '' && t.status === '進行中')
     .filter((t) => !WORK_TYPES.includes(t.name));
 }
 
