@@ -275,12 +275,22 @@ export async function fetchWeeklyStats(): Promise<WeeklyStats> {
 
   return {
     completedCount: completed.length,
-    noraVideos: completed.filter((t) => t.name.includes('ノーラ')).length,
+    noraVideos: completed.filter((t) =>
+      t.name.includes('ノーラ') || t.name.includes('リール')
+    ).length,
     monaVideos: completed.filter((t) => t.name.includes('モナ')).length,
-    noteCount: completed.filter((t) => t.name.includes('note') || t.name.includes('Note')).length,
-    evolutionMinutes: completed.filter((t) => t.name.toLowerCase().includes('evolution')).length * 60,
-    xPostCount: completed.filter((t) => t.name.includes('X投稿') || t.name.includes('Xに投稿')).length,
-    affirmationDays: completed.filter((t) => t.name.includes('アファメーション') || t.name.includes('アフォメーション')).length,
+    noteCount: completed.filter((t) =>
+      t.name.includes('note') || t.name.includes('Note')
+    ).length,
+    evolutionMinutes: completed.filter((t) =>
+      t.name.toLowerCase().includes('evolution') || t.name.includes('Evolution')
+    ).length * 60,
+    xPostCount: completed.filter((t) =>
+      t.name.includes('X投稿') || t.name.includes('Xに投稿') || t.name.includes('X に投稿')
+    ).length,
+    affirmationDays: completed.filter((t) =>
+      t.name.includes('アファメーション') || t.name.includes('アフォメーション')
+    ).length,
     normalWorkDays: 0,
     nightShiftCount: 0,
     morningShiftCount: 0,
@@ -321,11 +331,19 @@ export async function fetchMonthlyStats(): Promise<MonthlyStats> {
   return {
     monthName,
     completedCount: completed.length,
-    noraVideos: completed.filter((t) => t.name.includes('ノーラ')).length,
+    noraVideos: completed.filter((t) =>
+      t.name.includes('ノーラ') || t.name.includes('リール')
+    ).length,
     monaVideos: completed.filter((t) => t.name.includes('モナ')).length,
-    noteCount: completed.filter((t) => t.name.includes('note') || t.name.includes('Note')).length,
-    xPostCount: completed.filter((t) => t.name.includes('X投稿') || t.name.includes('Xに投稿')).length,
-    affirmationDays: completed.filter((t) => t.name.includes('アファメーション') || t.name.includes('アフォメーション')).length,
+    noteCount: completed.filter((t) =>
+      t.name.includes('note') || t.name.includes('Note')
+    ).length,
+    xPostCount: completed.filter((t) =>
+      t.name.includes('X投稿') || t.name.includes('Xに投稿') || t.name.includes('X に投稿')
+    ).length,
+    affirmationDays: completed.filter((t) =>
+      t.name.includes('アファメーション') || t.name.includes('アフォメーション')
+    ).length,
     normalWorkDays: 0,
     nightShiftCount: 0,
     morningShiftCount: 0,
