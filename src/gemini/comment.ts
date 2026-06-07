@@ -102,7 +102,6 @@ export async function generateMorningComment(
     ? weekRemainingTasks.map((t: NotionTask) => `・${t.name}`).join('\n')
     : 'なし';
 
-  // 勤務種別ごとの重・中タスク推奨メッセージ
   let taskFocusAdvice = '';
   if (workType === '休み' || workType === null) {
     if (heavyTasks.length > 0) {
@@ -218,7 +217,6 @@ export async function generateEveningComment(
     ? tomorrowCalendarEvents.filter((e: any) => !e.isWorkType).map((e: any) => `・${e.title}（${e.start}）`).join('\n')
     : 'なし';
   const tomorrowWorkType = tomorrowCalendarEvents.find((e: any) => e.isWorkType)?.workType ?? null;
-
   const completedHeavy = completedTasks.filter((t) => t.weight === '重');
   const completedMedium = completedTasks.filter((t) => t.weight === '中');
 
@@ -264,7 +262,11 @@ ${tomorrowCalList}
 （進行中タスクがあれば記載、なければ省略）
 
 【明日の予定】
-（明日の勤務・タスク・カレンダー予定）
+勤務：（明日の勤務種別）
+タスク：
+（明日のタスク。タスク名のみ、重さの表記なし）
+カレンダー：
+（明日のカレンダー予定があれば記載、なければ省略）
 
 AI秘書からひとこと：
 （今日の頑張りを認める。重・中タスクを完了した場合は特に褒める。明日に向けた無理のないアドバイス。2〜3文。責めない。アスタリスクなし）
