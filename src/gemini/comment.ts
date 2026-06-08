@@ -21,6 +21,7 @@ const BASE_SYSTEM_PROMPT = `
 - 継続可能性を最優先する
 - アスタリスク（*）を使わない。強調したい場合は「！」や絵文字を使う
 - 箇条書きは「・」を使う
+- タスク名の後ろに重さ（軽・中・重）を表記しない
 
 【タスク負荷基準】
 - 軽：X投稿、アファメーション、SNS確認、ノーラの動画
@@ -95,7 +96,7 @@ export async function generateMorningComment(
   const dayOfWeek = today.getUTCDay();
   const daysLeft = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
   const calendarList = calendarEvents.length > 0
-    ? calendarEvents.map((e: any) => `・${e.title}（${e.start}）`).join('\n')
+    ? calendarEvents.map((e: any) => `・${e.title}`).join('\n')
     : 'なし';
   const isHoliday = workType === '休み' || workType === null;
   const weekTaskList = weekRemainingTasks.length > 0
@@ -129,7 +130,8 @@ export async function generateMorningComment(
 
   const prompt = `
 今日の状況を分析して、毎朝のLINE通知メッセージを生成してください。
-アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
+タスク名の後ろに重さ（軽・中・重）を絶対に表記しないでください。
+アスタリスク（*）は絶対に使わないでください。
 
 【今日の勤務】
 ${workType ?? '未設定'}
@@ -170,7 +172,7 @@ ${taskFocusAdvice || 'なし'}
 （勤務種類）
 
 【進行中】
-（進行中タスクがあれば記載、なければ省略）
+（進行中タスクがあれば名前のみ記載、なければ省略）
 
 【今日の予定】
 （タスク名のみ。重さの表記なし）
@@ -185,13 +187,13 @@ ${taskFocusAdvice || 'なし'}
 （重タスクがあれば名前のみ記載、なければ「今日は重タスクなし」）
 
 📝 note進捗
-（今週の本数／目標、残り本数をシンプルに。今日書くべきか一言。アスタリスクなし）
+（今週の本数／目標、残り本数をシンプルに。今日書くべきか一言）
 
 💪 今日の集中ポイント
-（勤務種別に応じた重・中タスクへの取り組み方を1〜2文で。アスタリスクなし）
+（勤務種別に応じた重・中タスクへの取り組み方を1〜2文で）
 
 AI秘書からひとこと：
-（休日なら脳科学ベースの時間配分も提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない。アスタリスクなし）
+（休日なら脳科学ベースの時間配分も提案。勤務日なら帰宅後の無理のない配分を提案。2〜3文で。責めない）
 `.trim();
 
   return callClaude(prompt);
@@ -214,7 +216,7 @@ export async function generateEveningComment(
     ? tomorrowTasks.map((t) => `・${t.name}`).join('\n')
     : 'なし';
   const tomorrowCalList = tomorrowCalendarEvents.length > 0
-    ? tomorrowCalendarEvents.filter((e: any) => !e.isWorkType).map((e: any) => `・${e.title}（${e.start}）`).join('\n')
+    ? tomorrowCalendarEvents.filter((e: any) => !e.isWorkType).map((e: any) => `・${e.title}`).join('\n')
     : 'なし';
   const tomorrowWorkType = tomorrowCalendarEvents.find((e: any) => e.isWorkType)?.workType ?? null;
   const completedHeavy = completedTasks.filter((t) => t.weight === '重');
@@ -222,7 +224,8 @@ export async function generateEveningComment(
 
   const prompt = `
 今日の振り返りと明日の準備のLINE通知メッセージを生成してください。
-アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
+タスク名の後ろに重さ（軽・中・重）を絶対に表記しないでください。
+アスタリスク（*）は絶対に使わないでください。
 
 【今日の勤務】
 ${workType ?? '未設定'}
@@ -259,17 +262,17 @@ ${tomorrowCalList}
 （今日完了した重・中タスクがあれば特記。なければ省略）
 
 【進行中】
-（進行中タスクがあれば記載、なければ省略）
+（進行中タスクがあれば名前のみ記載、なければ省略）
 
 【明日の予定】
 勤務：（明日の勤務種別）
 タスク：
-（明日のタスク。タスク名のみ、重さの表記なし）
+（明日のタスク。タスク名のみ）
 カレンダー：
 （明日のカレンダー予定があれば記載、なければ省略）
 
 AI秘書からひとこと：
-（今日の頑張りを認める。重・中タスクを完了した場合は特に褒める。明日に向けた無理のないアドバイス。2〜3文。責めない。アスタリスクなし）
+（今日の頑張りを認める。重・中タスクを完了した場合は特に褒める。明日に向けた無理のないアドバイス。2〜3文。責めない）
 `.trim();
 
   return callClaude(prompt);
@@ -280,7 +283,7 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 
   const prompt = `
 今週の活動データを分析して、週報LINEメッセージを生成してください。
-アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
+アスタリスク（*）は絶対に使わないでください。
 
 【今週の実績】
 ・完了タスク数：${stats.completedCount}個
@@ -301,7 +304,7 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 （実績一覧）
 
 ■ AI分析
-（2〜4文。反省会にしない。頑張りを可視化する。重・中タスクの達成も評価する。アスタリスクなし）
+（2〜4文。反省会にしない。頑張りを可視化する。重・中タスクの達成も評価する）
 
 ■ 来週の提案
 （2〜3点。箇条書きは「・」を使う）
@@ -317,7 +320,7 @@ export async function generateMonthlyComment(stats: MonthlyStats): Promise<strin
 
   const prompt = `
 先月の活動データを分析して、月報LINEメッセージを生成してください。
-アスタリスク（*）は絶対に使わないでください。強調は絵文字や「！」で表現してください。
+アスタリスク（*）は絶対に使わないでください。
 
 【${stats.monthName}の実績】
 ・完了タスク数：${stats.completedCount}個
@@ -338,7 +341,7 @@ ${stats.monthName}の月報 📅
 （実績一覧）
 
 ■ AI分析
-（先月の総括。3〜5文。頑張りを可視化。反省会にしない。重・中タスクの達成も評価する。アスタリスクなし）
+（先月の総括。3〜5文。頑張りを可視化。反省会にしない。重・中タスクの達成も評価する）
 
 ■ 来月の提案
 （具体的な提案を2〜3点。箇条書きは「・」を使う）
