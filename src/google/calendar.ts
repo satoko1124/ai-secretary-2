@@ -7,7 +7,8 @@ const WORK_TYPES = [
   '土日当直',
   '当直明け',
   '休み',
-  '当直',  // 「当直」のみの入力にも対応
+  '当直',
+  '日直',
 ];
 
 export interface CalendarEvent {
@@ -39,13 +40,10 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
   const calendarId = process.env.GOOGLE_CALENDAR_ID;
   if (!calendarId) throw new Error('GOOGLE_CALENDAR_ID が設定されていません');
   const calendar = await getCalendarClient();
-
   const startOfDay = new Date(`${dateStr}T00:00:00+09:00`);
   const endOfDay = new Date(`${dateStr}T23:59:59+09:00`);
-
   console.log(`今日の日付(JST): ${dateStr}`);
   console.log(`カレンダー取得範囲: ${startOfDay.toISOString()} 〜 ${endOfDay.toISOString()}`);
-
   const res = await calendar.events.list({
     calendarId,
     timeMin: startOfDay.toISOString(),
@@ -53,14 +51,13 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
     singleEvents: true,
     orderBy: 'startTime',
   });
-
   const events = res.data.items ?? [];
   console.log(`取得したイベント数: ${events.length}`);
   events.forEach(e => console.log(`イベント: ${e.summary}`));
-
   return events.map((event) => {
     const title = event.summary ?? '';
     const workType = WORK_TYPES.find((w) => title.includes(w)) ?? null;
+    console.log(`タイトル:「${title}」→ workType:「${workType}」`);
     return {
       title,
       start: event.start?.dateTime ?? event.start?.date ?? '',
@@ -84,6 +81,7 @@ export async function fetchWorkTypeFromCalendar(): Promise<string | null> {
   try {
     const events = await fetchTodayCalendarEvents();
     const workEvent = events.find((e) => e.isWorkType);
+    console.log(`勤務種別(calendar.ts内): ${workEvent?.workType ?? 'null'}`);
     return workEvent?.workType ?? null;
   } catch (err) {
     console.warn('Googleカレンダーからの勤務取得に失敗:', err);
