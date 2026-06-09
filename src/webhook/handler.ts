@@ -1,6 +1,6 @@
 import * as crypto from 'crypto';
 import { sendLineMessage } from '../line/sender';
-import { fetchTodayTasks, fetchTodayWorkType_removed, addNotionTask, completeNotionTask } from '../notion/client';
+import { fetchTodayTasks, addNotionTask, completeNotionTask } from '../notion/client';
 import { fetchWorkTypeFromCalendar } from '../google/calendar';
 
 export function verifyLineSignature(body: string, signature: string): boolean {
