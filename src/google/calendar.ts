@@ -1,6 +1,14 @@
 import { google } from 'googleapis';
 
-const WORK_TYPES = ['通常勤務', '早番', '平日当直', '土日当直', '当直明け', '休み'];
+const WORK_TYPES = [
+  '通常勤務',
+  '早番',
+  '平日当直',
+  '土日当直',
+  '当直明け',
+  '休み',
+  '当直',  // 「当直」のみの入力にも対応
+];
 
 export interface CalendarEvent {
   title: string;
@@ -22,7 +30,6 @@ async function getCalendarClient() {
 
 function getJSTDateString(offsetDays: number = 0): string {
   const now = new Date();
-  // JST = UTC + 9時間
   const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   jst.setDate(jst.getDate() + offsetDays);
   return jst.toISOString().slice(0, 10);
@@ -36,6 +43,7 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
   const startOfDay = new Date(`${dateStr}T00:00:00+09:00`);
   const endOfDay = new Date(`${dateStr}T23:59:59+09:00`);
 
+  console.log(`今日の日付(JST): ${dateStr}`);
   console.log(`カレンダー取得範囲: ${startOfDay.toISOString()} 〜 ${endOfDay.toISOString()}`);
 
   const res = await calendar.events.list({
@@ -64,13 +72,11 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
 
 export async function fetchTodayCalendarEvents(): Promise<CalendarEvent[]> {
   const todayStr = getJSTDateString(0);
-  console.log(`今日の日付(JST): ${todayStr}`);
   return fetchCalendarEventsForDate(todayStr);
 }
 
 export async function fetchTomorrowCalendarEvents(): Promise<CalendarEvent[]> {
   const tomorrowStr = getJSTDateString(1);
-  console.log(`明日の日付(JST): ${tomorrowStr}`);
   return fetchCalendarEventsForDate(tomorrowStr);
 }
 
