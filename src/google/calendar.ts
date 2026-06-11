@@ -3,13 +3,13 @@ import { google } from 'googleapis';
 const WORK_TYPES = [
   '通常勤務',
   '早番',
-  '平日当直',
-  '土日当直',
   '当直明け',
   '休み',
   '当直',
   '日直',
 ];
+
+const TOCHU_TYPES = ['当直'];
 
 export interface CalendarEvent {
   title: string;
@@ -42,7 +42,7 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
   const calendar = await getCalendarClient();
   const startOfDay = new Date(`${dateStr}T00:00:00+09:00`);
   const endOfDay = new Date(`${dateStr}T23:59:59+09:00`);
-  console.log(`今日の日付(JST): ${dateStr}`);
+  console.log(`日付(JST): ${dateStr}`);
   console.log(`カレンダー取得範囲: ${startOfDay.toISOString()} 〜 ${endOfDay.toISOString()}`);
   const res = await calendar.events.list({
     calendarId,
@@ -67,14 +67,70 @@ async function fetchCalendarEventsForDate(dateStr: string): Promise<CalendarEven
   });
 }
 
+async function checkIfTochuAke(dateStr: string): Promise<boolean> {
+  const calendarId = process.env.GOOGLE_CALENDAR_ID;
+  if (!calendarId) return false;
+  const calendar = await getCalendarClient();
+
+  const prevDayStart = new Date(`${dateStr}T00:00:00+09:00`);
+  prevDayStart.setDate(prevDayStart.getDate() - 1);
+  const targetDayStart = new Date(`${dateStr}T00:00:00+09:00`);
+
+  const res = await calendar.events.list({
+    calendarId,
+    timeMin: prevDayStart.toISOString(),
+    timeMax: targetDayStart.toISOString(),
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+
+  const events = res.data.items ?? [];
+  for (const event of events) {
+    const title = event.summary ?? '';
+    const isTochuType = TOCHU_TYPES.some((w) => title.includes(w));
+    if (!isTochuType) continue;
+
+    const endStr = event.end?.dateTime ?? event.end?.date ?? '';
+    if (!endStr) continue;
+    const endDate = new Date(endStr);
+    if (endDate > targetDayStart) {
+      console.log(`当直明け判定: 前日の「${title}」が${dateStr}まで続いている`);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function getEventsWithTochuAke(dateStr: string): Promise<CalendarEvent[]> {
+  const events = await fetchCalendarEventsForDate(dateStr);
+  const isTochuAke = await checkIfTochuAke(dateStr);
+
+  if (isTochuAke) {
+    console.log(`${dateStr}は当直明けと判定しました`);
+    const hasWorkType = events.some((e) => e.isWorkType);
+    if (hasWorkType) {
+      return events.map((e) =>
+        e.isWorkType ? { ...e, workType: '当直明け' } : e
+      );
+    } else {
+      return [
+        { title: '当直明け', start: '', isWorkType: true, workType: '当直明け' },
+        ...events,
+      ];
+    }
+  }
+
+  return events;
+}
+
 export async function fetchTodayCalendarEvents(): Promise<CalendarEvent[]> {
   const todayStr = getJSTDateString(0);
-  return fetchCalendarEventsForDate(todayStr);
+  return getEventsWithTochuAke(todayStr);
 }
 
 export async function fetchTomorrowCalendarEvents(): Promise<CalendarEvent[]> {
   const tomorrowStr = getJSTDateString(1);
-  return fetchCalendarEventsForDate(tomorrowStr);
+  return getEventsWithTochuAke(tomorrowStr);
 }
 
 export async function fetchWorkTypeFromCalendar(): Promise<string | null> {
