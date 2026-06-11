@@ -12,7 +12,6 @@ export interface PeriodRecord {
   day: number;
 }
 
-// 最新の生理記録を取得
 export async function getLatestPeriodRecord(): Promise<PeriodRecord | null> {
   try {
     const res = await fetch(`https://api.notion.com/v1/databases/${PERIOD_DATABASE_ID}/query`, {
@@ -24,6 +23,7 @@ export async function getLatestPeriodRecord(): Promise<PeriodRecord | null> {
       }),
     });
     const data = await res.json() as any;
+    console.log('生理記録取得結果:', JSON.stringify(data.results?.[0]?.properties ?? {}));
     const results = data.results ?? [];
     if (results.length === 0) return null;
 
@@ -40,36 +40,46 @@ export async function getLatestPeriodRecord(): Promise<PeriodRecord | null> {
   }
 }
 
-// 生理記録を追加
 export async function addPeriodRecord(day: number): Promise<void> {
   const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
 
-  await fetch('https://api.notion.com/v1/pages', {
+  const body = {
+    parent: { database_id: PERIOD_DATABASE_ID },
+    properties: {
+      Name: {
+        title: [{ text: { content: `生理${day}日目` } }],
+      },
+      Date: {
+        date: { start: today },
+      },
+    },
+  };
+
+  console.log('生理記録追加リクエスト:', JSON.stringify(body));
+
+  const res = await fetch('https://api.notion.com/v1/pages', {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      parent: { database_id: PERIOD_DATABASE_ID },
-      properties: {
-        Name: {
-          title: [{ text: { content: `生理${day}日目` } }],
-        },
-        Date: {
-          date: { start: today },
-        },
-      },
-    }),
+    body: JSON.stringify(body),
   });
+
+  const data = await res.json() as any;
+  console.log('生理記録追加レスポンス:', JSON.stringify(data));
+
+  if (!res.ok) {
+    throw new Error(`Notion APIエラー: ${JSON.stringify(data)}`);
+  }
+
   console.log(`生理${day}日目を記録しました（${today}）`);
 }
 
-// 生理周期の状態を計算
 export interface PeriodStatus {
-  currentDay: number | null;      // 今日が生理何日目か（nullなら生理中でない）
-  nextPeriodDate: string | null;  // 次回予定日
-  daysUntilNext: number | null;   // 次回まで何日
-  phase: 'period' | 'pms' | 'normal'; // 現在のフェーズ
+  currentDay: number | null;
+  nextPeriodDate: string | null;
+  daysUntilNext: number | null;
+  phase: 'period' | 'pms' | 'normal';
 }
 
 export async function getPeriodStatus(cycleLength: number = 28): Promise<PeriodStatus> {
@@ -83,11 +93,9 @@ export async function getPeriodStatus(cycleLength: number = 28): Promise<PeriodS
   const latestDate = new Date(latest.date);
   latestDate.setHours(0, 0, 0, 0);
 
-  // 最新記録からの経過日数
   const diffDays = Math.round((today.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24));
   const currentDay = latest.day + diffDays;
 
-  // 次回予定日（1日目から28日後）
   const firstDayDate = new Date(latestDate);
   firstDayDate.setDate(firstDayDate.getDate() - (latest.day - 1));
   const nextPeriod = new Date(firstDayDate);
@@ -95,13 +103,14 @@ export async function getPeriodStatus(cycleLength: number = 28): Promise<PeriodS
   const daysUntilNext = Math.round((nextPeriod.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   const nextPeriodDate = nextPeriod.toISOString().slice(0, 10);
 
-  // フェーズ判定
   let phase: 'period' | 'pms' | 'normal' = 'normal';
   if (currentDay >= 1 && currentDay <= 7) {
     phase = 'period';
   } else if (daysUntilNext <= 3 && daysUntilNext >= 0) {
     phase = 'pms';
   }
+
+  console.log(`生理状態: day=${currentDay}, daysUntilNext=${daysUntilNext}, phase=${phase}`);
 
   return {
     currentDay: currentDay <= 7 ? currentDay : null,
