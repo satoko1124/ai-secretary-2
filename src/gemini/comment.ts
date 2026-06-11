@@ -1,4 +1,5 @@
 import { NotionTask, WeeklyStats, MonthlyStats } from '../types';
+import { PeriodStatus } from '../notion/period';
 
 const BASE_SYSTEM_PROMPT = `
 あなたは「第2領域実行支援秘書」です。
@@ -33,13 +34,19 @@ const BASE_SYSTEM_PROMPT = `
 【今日の状態の判断基準】
 攻める日：休日・通常勤務帰宅後・早番帰宅後（体力あり）
 維持する日：通常勤務帰宅後（疲労あり）・早番帰宅後（疲労あり）・日直帰宅後
-回復する日：当直明け・当直中
+回復する日：当直明け・当直中・生理1〜3日目
 
 【当直明けの通知に必ず含めること】
 ・回復を最優先にするメッセージ
 ・コンビニで買えるおすすめメニューを具体的に提案（体に優しいもの＋少しジャンキーなものも）
 ・第2領域はアナログ作業のみOKと伝える
 ・横になる時間を確保することを勧める
+
+【生理中の対応】
+・生理前日（PMSフェーズ）：お腹がゆるくなる・頭痛が出やすい。消化に優しい食事と頭痛薬の準備を促す
+・生理1〜3日目：腹痛・体調不良あり。回復する日として扱う。無理せず横になることを優先
+・生理4日目以降：徐々に回復。軽めの活動からOK
+・生理中のコンビニおすすめ：温かい飲み物・ゼリー飲料・おかゆ・バナナ・ホットスナック
 
 【行動原則】
 - ユーザーを責めない
@@ -86,7 +93,8 @@ export async function generateMorningComment(
   inProgressTasks: NotionTask[],
   weeklyNoteCount: number,
   calendarEvents: any[] = [],
-  weekRemainingTasks: NotionTask[] = []
+  weekRemainingTasks: NotionTask[] = [],
+  periodStatus?: PeriodStatus,
 ): Promise<string> {
   const heavyTasks = [...inProgressTasks, ...tasks].filter((t) => t.weight === '重');
   const mediumTasks = [...inProgressTasks, ...tasks].filter((t) => t.weight === '中');
@@ -105,6 +113,18 @@ export async function generateMorningComment(
     ? allSecondQuadrantTasks.map((t) => `・${t.name}（${t.status === '進行中' ? '進行中' : '未着手'}）`).join('\n')
     : 'なし';
 
+  // 生理情報
+  let periodInfo = '記録なし';
+  if (periodStatus) {
+    if (periodStatus.phase === 'period' && periodStatus.currentDay) {
+      periodInfo = `生理${periodStatus.currentDay}日目`;
+    } else if (periodStatus.phase === 'pms' && periodStatus.daysUntilNext !== null) {
+      periodInfo = `生理予定まであと${periodStatus.daysUntilNext}日（PMSに注意）`;
+    } else if (periodStatus.daysUntilNext !== null) {
+      periodInfo = `次回生理予定まであと${periodStatus.daysUntilNext}日`;
+    }
+  }
+
   const prompt = `
 今日の状況を分析して、毎朝のLINE通知を生成してください。
 
@@ -121,6 +141,9 @@ ${secondQuadrantList}
 今週：${weeklyNoteCount}本 / 目標3本
 残り：${noteRemaining}本（今週残り${daysLeft}日）
 
+【生理・体調情報】
+${periodInfo}
+
 以下のフォーマットで出力してください：
 
 おはようございます ☀️
@@ -131,19 +154,22 @@ ${secondQuadrantList}
 【今日の予定】
 （Googleカレンダーの予定があれば記載、なければ省略）
 
+【体調】
+（生理中またはPMSフェーズの場合のみ記載。それ以外は省略）
+
 【今日の状態】
 （攻める日 / 維持する日 / 回復する日）
 
 【本日の第2領域】
-（今日進めるべき第2領域タスクを1つだけ選ぶ。進行中のものを優先する。当直明けの場合はアナログ作業のみ）
+（今日進めるべき第2領域タスクを1つだけ選ぶ。進行中のものを優先する。当直明け・生理1〜3日目はアナログ作業のみ）
 
 【推奨時間】
-（今日の勤務パターンを考慮して、第2領域に使える具体的な時間帯を提案。当直中はアナログ作業のみ）
+（今日の勤務パターンを考慮して、第2領域に使える具体的な時間帯を提案）
 
 【今日の成功条件】
 （第2領域タスクを何分・どこまで進めるか。小さくてOK）
 
-（当直明けの場合は【回復メニュー】としてコンビニおすすめを追加する）
+（当直明けまたは生理1〜3日目の場合は【回復メニュー】としてコンビニおすすめを追加する）
 
 ルーティーンは通常通りで大丈夫です。
 
