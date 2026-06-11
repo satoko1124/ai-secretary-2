@@ -20,13 +20,12 @@ export async function handleLineMessage(
   console.log(`受信メッセージ: "${text}"`);
   const trimmed = text.trim();
 
-  // 生理記録コマンド
   const periodMatch = trimmed.match(/^生理[：:]\s*(\d+)日目/);
   if (periodMatch) {
     const day = parseInt(periodMatch[1]);
     try {
       await addPeriodRecord(day);
-      await sendLineMessage(`🌸 生理${day}日目を記録しました。無理せず過ごしてね。`);
+      await sendLineMessage(`生理${day}日目を記録しました。無理せず過ごしてね🌸`);
     } catch (err) {
       console.error('生理記録エラー:', err);
       await sendLineMessage(`❌ 記録に失敗しました。`);
@@ -86,7 +85,7 @@ export async function handleLineMessage(
       `📋 タスク\n→ 今日の残りタスクを表示\n\n` +
       `✅ 完了: タスク名\n→ タスクを完了にする\n\n` +
       `📝 追加: タスク名\n→ タスクを追加する\n\n` +
-      `🌸 生理: 1日目\n→ 生理日を記録する`
+      `生理: 1日目\n→ 生理日を記録する`
     );
     return;
   }
