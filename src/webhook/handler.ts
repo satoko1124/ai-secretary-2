@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import { sendLineMessage } from '../line/sender';
 import { fetchTodayTasks, addNotionTask, completeNotionTask } from '../notion/client';
 import { fetchWorkTypeFromCalendar } from '../google/calendar';
+import { addPeriodRecord } from '../notion/period';
 
 export function verifyLineSignature(body: string, signature: string): boolean {
   const secret = process.env.LINE_CHANNEL_SECRET!;
@@ -18,6 +19,20 @@ export async function handleLineMessage(
 ): Promise<void> {
   console.log(`受信メッセージ: "${text}"`);
   const trimmed = text.trim();
+
+  // 生理記録コマンド
+  const periodMatch = trimmed.match(/^生理[：:]\s*(\d+)日目/);
+  if (periodMatch) {
+    const day = parseInt(periodMatch[1]);
+    try {
+      await addPeriodRecord(day);
+      await sendLineMessage(`🌸 生理${day}日目を記録しました。無理せず過ごしてね。`);
+    } catch (err) {
+      console.error('生理記録エラー:', err);
+      await sendLineMessage(`❌ 記録に失敗しました。`);
+    }
+    return;
+  }
 
   const kanryoMatch = trimmed.match(/^完了[：:]\s*(.+)/);
   if (kanryoMatch) {
@@ -70,7 +85,8 @@ export async function handleLineMessage(
       `🤖 使えるコマンド一覧\n\n` +
       `📋 タスク\n→ 今日の残りタスクを表示\n\n` +
       `✅ 完了: タスク名\n→ タスクを完了にする\n\n` +
-      `📝 追加: タスク名\n→ タスクを追加する`
+      `📝 追加: タスク名\n→ タスクを追加する\n\n` +
+      `🌸 生理: 1日目\n→ 生理日を記録する`
     );
     return;
   }
