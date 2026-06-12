@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import { sendLineMessage } from '../line/sender';
 import { fetchTodayTasks, addNotionTask, completeNotionTask } from '../notion/client';
 import { fetchWorkTypeFromCalendar } from '../google/calendar';
-import { addPeriodRecord } from '../notion/period';
+import { addPeriodRecord, addConditionRecord, addMemoRecord } from '../notion/record';
 
 export function verifyLineSignature(body: string, signature: string): boolean {
   const secret = process.env.LINE_CHANNEL_SECRET!;
@@ -12,6 +12,29 @@ export function verifyLineSignature(body: string, signature: string): boolean {
     .digest('base64');
   return hash === signature;
 }
+
+const COMMAND_LIST = `🤖 使えるコマンド一覧
+
+📋 タスク
+→ 今日の残りタスクを表示
+
+✅ 完了: タスク名
+→ タスクを完了にする
+
+📝 追加: タスク名
+→ タスクを追加する
+
+生理: 1日目
+→ 生理日を記録する
+
+体調: 不良
+→ 今日を回復する日として記録する
+
+メモ: 内容
+→ アイデアや思いつきをメモする
+
+コマンド
+→ このコマンド一覧を表示`;
 
 export async function handleLineMessage(
   userId: string,
@@ -28,6 +51,32 @@ export async function handleLineMessage(
       await sendLineMessage(`生理${day}日目を記録しました。無理せず過ごしてね🌸`);
     } catch (err) {
       console.error('生理記録エラー:', err);
+      await sendLineMessage(`❌ 記録に失敗しました。`);
+    }
+    return;
+  }
+
+  const conditionMatch = trimmed.match(/^体調[：:]\s*(.+)/);
+  if (conditionMatch) {
+    const note = conditionMatch[1].trim();
+    try {
+      await addConditionRecord(note === '不良' ? '' : note);
+      await sendLineMessage(`体調不良を記録しました。今日は無理せず過ごしてね🍵`);
+    } catch (err) {
+      console.error('体調記録エラー:', err);
+      await sendLineMessage(`❌ 記録に失敗しました。`);
+    }
+    return;
+  }
+
+  const memoMatch = trimmed.match(/^メモ[：:]\s*(.+)/);
+  if (memoMatch) {
+    const content = memoMatch[1].trim();
+    try {
+      await addMemoRecord(content);
+      await sendLineMessage(`📝 メモを記録しました：「${content}」`);
+    } catch (err) {
+      console.error('メモ記録エラー:', err);
       await sendLineMessage(`❌ 記録に失敗しました。`);
     }
     return;
@@ -79,17 +128,11 @@ export async function handleLineMessage(
     return;
   }
 
-  if (trimmed === 'ヘルプ' || trimmed === 'help') {
-    await sendLineMessage(
-      `🤖 使えるコマンド一覧\n\n` +
-      `📋 タスク\n→ 今日の残りタスクを表示\n\n` +
-      `✅ 完了: タスク名\n→ タスクを完了にする\n\n` +
-      `📝 追加: タスク名\n→ タスクを追加する\n\n` +
-      `生理: 1日目\n→ 生理日を記録する`
-    );
+  if (trimmed === 'コマンド' || trimmed === 'ヘルプ' || trimmed === 'help') {
+    await sendLineMessage(COMMAND_LIST);
     return;
   }
 
   console.log(`未認識メッセージ: "${trimmed}"`);
-  await sendLineMessage(`「ヘルプ」と送るとコマンド一覧が見られます😊`);
+  await sendLineMessage(`「コマンド」と送るとコマンド一覧が見られます😊`);
 }
