@@ -2,18 +2,19 @@ import { fetchTodayTasks, fetchTodayInProgressTasks, resetDailyTasks, fetchWeekl
 import { fetchWorkTypeFromCalendar, fetchTodayCalendarEvents } from '../google/calendar';
 import { generateMorningComment } from '../gemini/comment';
 import { sendLineMessage } from '../line/sender';
-import { getPeriodStatus } from '../notion/period';
+import { getPeriodStatus, checkTodayConditionBad } from '../notion/record';
 
 export async function runMorningNotification(): Promise<void> {
   console.log('🌅 毎朝通知を開始します...');
   try {
     await resetDailyTasks();
-    const [tasks, inProgressTasks, weeklyNoteCount, weekRemainingTasks, periodStatus] = await Promise.all([
+    const [tasks, inProgressTasks, weeklyNoteCount, weekRemainingTasks, periodStatus, conditionBad] = await Promise.all([
       fetchTodayTasks(),
       fetchTodayInProgressTasks(),
       fetchWeeklyNoteCount(),
       fetchWeekRemainingTasks(),
       getPeriodStatus(28),
+      checkTodayConditionBad(),
     ]);
 
     let workType: string | null = null;
@@ -36,6 +37,7 @@ export async function runMorningNotification(): Promise<void> {
     console.log(`今週の残りタスク: ${weekRemainingTasks.length}件`);
     console.log(`今週のnote: ${weeklyNoteCount}本`);
     console.log(`生理フェーズ: ${periodStatus.phase}`);
+    console.log(`体調不良: ${conditionBad}`);
 
     const message = await generateMorningComment(
       workType,
@@ -45,6 +47,7 @@ export async function runMorningNotification(): Promise<void> {
       calendarEvents,
       weekRemainingTasks,
       periodStatus,
+      conditionBad,
     );
     await sendLineMessage(message);
     console.log('✅ 毎朝通知が完了しました');
