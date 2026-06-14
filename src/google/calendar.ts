@@ -93,7 +93,8 @@ async function checkIfTochuAke(dateStr: string): Promise<boolean> {
     const endStr = event.end?.dateTime ?? event.end?.date ?? '';
     if (!endStr) continue;
     const endDate = new Date(endStr);
-    if (endDate > targetDayStart) {
+    const targetDate = new Date(`${dateStr}T00:00:00+09:00`);
+    if (endDate > targetDate) {
       console.log(`当直明け判定: 前日の「${title}」が${dateStr}まで続いている`);
       return true;
     }
@@ -118,6 +119,16 @@ async function getEventsWithTochuAke(dateStr: string): Promise<CalendarEvent[]> 
         ...events,
       ];
     }
+  }
+
+  // 勤務イベントがない場合は「休み」として扱う
+  const hasWorkType = events.some((e) => e.isWorkType);
+  if (!hasWorkType) {
+    console.log(`${dateStr}は勤務イベントなし → 休みと判定`);
+    return [
+      { title: '休み', start: '', isWorkType: true, workType: '休み' },
+      ...events,
+    ];
   }
 
   return events;
