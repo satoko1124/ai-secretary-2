@@ -131,6 +131,21 @@ async function getEventsWithTochuAke(dateStr: string): Promise<CalendarEvent[]> 
     ];
   }
 
+  // 複数の勤務イベントがある場合、開始時刻が最も遅いものを優先
+  const workEvents = events.filter((e) => e.isWorkType);
+  if (workEvents.length > 1) {
+    console.log(`複数の勤務イベントあり: ${workEvents.map(e => e.workType).join(', ')}`);
+    const latestWorkEvent = workEvents.reduce((latest, current) => {
+      return current.start > latest.start ? current : latest;
+    });
+    console.log(`優先する勤務: ${latestWorkEvent.workType}`);
+    return events.map((e) =>
+      e.isWorkType && e !== latestWorkEvent
+        ? { ...e, isWorkType: false }
+        : e
+    );
+  }
+
   return events;
 }
 
