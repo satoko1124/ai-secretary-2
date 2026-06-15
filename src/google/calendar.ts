@@ -122,8 +122,8 @@ async function getEventsWithTochuAke(dateStr: string): Promise<CalendarEvent[]> 
   }
 
   // 勤務イベントがない場合は「休み」として扱う
-  const hasWorkType = events.some((e) => e.isWorkType);
-  if (!hasWorkType) {
+  const workEvents = events.filter((e) => e.isWorkType);
+  if (workEvents.length === 0) {
     console.log(`${dateStr}は勤務イベントなし → 休みと判定`);
     return [
       { title: '休み', start: '', isWorkType: true, workType: '休み' },
@@ -131,19 +131,17 @@ async function getEventsWithTochuAke(dateStr: string): Promise<CalendarEvent[]> 
     ];
   }
 
-  // 複数の勤務イベントがある場合、開始時刻が最も遅いものを優先
-  const workEvents = events.filter((e) => e.isWorkType);
+  // 複数の勤務イベントがある場合、時系列順に並べてcombinedWorkTypeを作成
   if (workEvents.length > 1) {
-    console.log(`複数の勤務イベントあり: ${workEvents.map(e => e.workType).join(', ')}`);
-    const latestWorkEvent = workEvents.reduce((latest, current) => {
-      return current.start > latest.start ? current : latest;
+    const sorted = workEvents.sort((a, b) => a.start.localeCompare(b.start));
+    const combined = sorted.map((e) => e.workType).join(' → ');
+    console.log(`複数の勤務イベントあり: ${combined}`);
+    // 最初の勤務イベントにcombinedを設定し、残りはisWorkType=falseに
+    return events.map((e) => {
+      if (e === sorted[0]) return { ...e, workType: combined };
+      if (e.isWorkType) return { ...e, isWorkType: false };
+      return e;
     });
-    console.log(`優先する勤務: ${latestWorkEvent.workType}`);
-    return events.map((e) =>
-      e.isWorkType && e !== latestWorkEvent
-        ? { ...e, isWorkType: false }
-        : e
-    );
   }
 
   return events;
