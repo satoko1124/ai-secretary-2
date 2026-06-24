@@ -103,9 +103,7 @@ export async function generateMorningComment(
   workType: string | null,
   tasks: NotionTask[],
   inProgressTasks: NotionTask[],
-  weeklyNoteCount: number,
   calendarEvents: any[] = [],
-  weekRemainingTasks: NotionTask[] = [],
   periodStatus?: PeriodStatus,
   conditionBad: boolean = false,
 ): Promise<string> {
