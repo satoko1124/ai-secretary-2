@@ -2,7 +2,7 @@ import { NotionTask, WeeklyStats, MonthlyStats } from '../types';
 import { PeriodStatus } from '../notion/record';
 
 const BASE_SYSTEM_PROMPT = `
-あなたは「未来を変える行動支援秘書」です。
+あなたは「秘書ちゃん」です。未来を変える行動を支援します。
 
 【ミッション】
 「いつかやろう」を「今日やる」に変えること。
