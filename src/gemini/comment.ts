@@ -10,7 +10,6 @@ const BASE_SYSTEM_PROMPT = `
 【未来を変える行動とは】
 重要だけど緊急ではないこと。
 ・Evolution動画視聴・まとめ
-・note執筆
 ・将来への投資・仕組みづくり
 
 【ユーザー情報】
@@ -30,7 +29,6 @@ const BASE_SYSTEM_PROMPT = `
 
 【タスク分類】
 重タスク（未来を変える行動）：Evolution動画視聴・Evolution動画まとめ
-中タスク（未来を変える行動）：note執筆
 軽タスク（ルーティーン）：ノーラ動画・X投稿・アファメーション・アメブロ執筆・日経225
 
 【今日の状態の判断基準】
@@ -115,11 +113,6 @@ export async function generateMorningComment(
   const mediumTasks = [...inProgressTasks, ...tasks].filter((t) => t.weight === '中');
   const allSecondQuadrantTasks = [...new Map([...heavyTasks, ...mediumTasks].map(t => [t.id, t])).values()];
 
-  const noteRemaining = Math.max(0, 3 - weeklyNoteCount);
-  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
-  const dayOfWeek = today.getUTCDay();
-  const daysLeft = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-
   const calendarList = calendarEvents.length > 0
     ? calendarEvents.map((e: any) => `・${e.title}`).join('\n')
     : 'なし';
@@ -152,10 +145,6 @@ ${calendarList}
 
 【未来を変える行動タスク（重・中）】
 ${secondQuadrantList}
-
-【note進捗】
-今週：${weeklyNoteCount}本 / 目標3本
-残り：${noteRemaining}本（今週残り${daysLeft}日）
 
 【生理・体調情報】
 ${periodInfo}
@@ -191,8 +180,6 @@ ${conditionInfo}
 （当直明けの場合は【回復メニュー】として当直明け用コンビニおすすめを追加する。生理1〜3日目または体調不良のみの場合は【回復メニュー】として体に優しいコンビニおすすめを追加する。当直明けと他が重なった場合は当直明けを優先し他のアドバイスは省略する）
 
 ルーティーンは通常通りで大丈夫です。
-
-📝 note進捗：${weeklyNoteCount}本／3本（残り${noteRemaining}本・今週あと${daysLeft}日）
 `.trim();
 
   return callClaude(prompt);
@@ -271,14 +258,11 @@ AI秘書からひとこと：
 }
 
 export async function generateWeeklyComment(stats: WeeklyStats): Promise<string> {
-  const noteAchievement = stats.noteCount >= 3 ? '達成！' : `あと${3 - stats.noteCount}本`;
-
   const prompt = `
 今週の活動データを分析して、週報LINEメッセージを生成してください。
 アスタリスク（*）は絶対に使わないでください。
 
 【今週の未来を変える行動の実績】
-・note：${stats.noteCount}本（目標3本 ${noteAchievement}）
 ・evolution学習：${Math.round(stats.evolutionMinutes / 60)}時間
 ・重タスク完了：${stats.heavyTaskCount}個
 
@@ -295,7 +279,7 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 おつかれさまでした ☀️
 
 ■ 未来を変える行動の進捗
-（noteとEvolution学習の実績。達成を讃える。未達でも責めない）
+（Evolution学習の実績。達成を讃える。未達でも責めない）
 
 ■ ルーティーン
 （軽タスクの継続状況を一言で）
@@ -308,16 +292,11 @@ export async function generateWeeklyComment(stats: WeeklyStats): Promise<string>
 }
 
 export async function generateMonthlyComment(stats: MonthlyStats): Promise<string> {
-  const noteAchievement = stats.noteCount >= 12
-    ? '週3本ペース達成！'
-    : `週平均${(stats.noteCount / 4).toFixed(1)}本`;
-
   const prompt = `
 先月の活動データを分析して、月報LINEメッセージを生成してください。
 アスタリスク（*）は絶対に使わないでください。
 
 【${stats.monthName}の未来を変える行動の実績】
-・note：${stats.noteCount}本（${noteAchievement}）
 ・重タスク完了：${stats.heavyTaskCount}個
 
 【${stats.monthName}のルーティーン実績】
@@ -334,7 +313,7 @@ ${stats.monthName}の月報 📅
 おつかれさまでした ☀️
 
 ■ 未来を変える行動の進捗
-（noteとEvolution学習の月次実績。達成を讃える。未達でも責めない）
+（Evolution学習の月次実績。達成を讃える。未達でも責めない）
 
 ■ ルーティーンの継続
 （軽タスクの継続状況を一言で）
