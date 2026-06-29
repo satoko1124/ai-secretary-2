@@ -2,7 +2,7 @@ import * as crypto from 'crypto';
 import { sendLineMessage } from '../line/sender';
 import { fetchTodayTasks, addNotionTask, completeNotionTask } from '../notion/client';
 import { fetchWorkTypeFromCalendar } from '../google/calendar';
-import { addPeriodRecord, addConditionRecord, addMemoRecord } from '../notion/record';
+import { addPeriodRecord, addConditionRecord, addMemoRecord, addProgressRecord } from '../notion/record';
 
 export function verifyLineSignature(body: string, signature: string): boolean {
   const secret = process.env.LINE_CHANNEL_SECRET!;
@@ -33,6 +33,9 @@ const COMMAND_LIST = `🤖 使えるコマンド一覧
 メモ: 内容
 → アイデアや思いつきをメモする
 
+進捗: タスク名 内容
+→ 進行中タスクの進捗を記録する
+
 コマンド
 → このコマンド一覧を表示`;
 
@@ -43,6 +46,7 @@ export async function handleLineMessage(
   console.log(`受信メッセージ: "${text}"`);
   const trimmed = text.trim();
 
+  // 生理記録コマンド
   const periodMatch = trimmed.match(/^生理[：:]\s*(\d+)日目/);
   if (periodMatch) {
     const day = parseInt(periodMatch[1]);
@@ -56,6 +60,7 @@ export async function handleLineMessage(
     return;
   }
 
+  // 体調不良コマンド
   const conditionMatch = trimmed.match(/^体調[：:]\s*(.+)/);
   if (conditionMatch) {
     const note = conditionMatch[1].trim();
@@ -69,6 +74,7 @@ export async function handleLineMessage(
     return;
   }
 
+  // メモコマンド
   const memoMatch = trimmed.match(/^メモ[：:]\s*(.+)/);
   if (memoMatch) {
     const content = memoMatch[1].trim();
@@ -82,6 +88,24 @@ export async function handleLineMessage(
     return;
   }
 
+  // 進捗コマンド
+  const progressMatch = trimmed.match(/^進捗[：:]\s*(.+)/);
+  if (progressMatch) {
+    const rest = progressMatch[1].trim();
+    const spaceIndex = rest.indexOf(' ');
+    const taskName = spaceIndex > -1 ? rest.slice(0, spaceIndex) : rest;
+    const content = spaceIndex > -1 ? rest.slice(spaceIndex + 1) : '進捗あり';
+    try {
+      await addProgressRecord(taskName, content);
+      await sendLineMessage(`✍️ 進捗を記録しました：「${taskName}」${content}`);
+    } catch (err) {
+      console.error('進捗記録エラー:', err);
+      await sendLineMessage(`❌ 記録に失敗しました。`);
+    }
+    return;
+  }
+
+  // 完了コマンド
   const kanryoMatch = trimmed.match(/^完了[：:]\s*(.+)/);
   if (kanryoMatch) {
     const taskName = kanryoMatch[1].trim();
@@ -94,6 +118,7 @@ export async function handleLineMessage(
     return;
   }
 
+  // 追加コマンド
   const tsuikaMatch = trimmed.match(/^追加[：:]\s*(.+)/);
   if (tsuikaMatch) {
     const taskName = tsuikaMatch[1].trim();
@@ -107,6 +132,7 @@ export async function handleLineMessage(
     return;
   }
 
+  // タスク一覧
   if (trimmed === 'タスク') {
     try {
       const [tasks, workType] = await Promise.all([
@@ -128,6 +154,7 @@ export async function handleLineMessage(
     return;
   }
 
+  // コマンド一覧
   if (trimmed === 'コマンド' || trimmed === 'ヘルプ' || trimmed === 'help') {
     await sendLineMessage(COMMAND_LIST);
     return;
