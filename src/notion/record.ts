@@ -8,7 +8,7 @@ const headers = {
 };
 
 // ===== 共通: 記録追加 =====
-async function addRecord(name: string, type: '生理' | '体調' | 'メモ'): Promise<void> {
+async function addRecord(name: string, type: '生理' | '体調' | 'メモ' | '進捗'): Promise<void> {
   const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
@@ -77,6 +77,39 @@ export async function checkTodayConditionBad(): Promise<boolean> {
 // ===== メモ =====
 export async function addMemoRecord(content: string): Promise<void> {
   await addRecord(`メモ：${content}`, 'メモ');
+}
+
+// ===== 進捗 =====
+export async function addProgressRecord(taskName: string, content: string): Promise<void> {
+  await addRecord(`${taskName}：${content}`, '進捗');
+}
+
+export async function getTodayProgressRecords(): Promise<string[]> {
+  const today = new Date(new Date().getTime() + 9 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  try {
+    const res = await fetch(`https://api.notion.com/v1/databases/${RECORD_DATABASE_ID}/query`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        filter: {
+          and: [
+            { property: '選択', select: { equals: '進捗' } },
+            { property: '日付', date: { equals: today } },
+          ],
+        },
+      }),
+    });
+    const data = await res.json() as any;
+    return (data.results ?? []).map((page: any) =>
+      page.properties?.名前?.title?.[0]?.plain_text ?? ''
+    ).filter(Boolean);
+  } catch (err) {
+    console.error('進捗取得エラー:', err);
+    return [];
+  }
 }
 
 // ===== 生理 =====
